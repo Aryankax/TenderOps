@@ -21,6 +21,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic.aliases import AliasChoices
+from enum import Enum
 
 from app.models.tender import RequirementCategory, TenderMetadata, TenderRequirement
 from app.core.sanitize import sanitize_text
@@ -75,6 +76,10 @@ class LLMRequirement(LenientBase):
         validation_alias=AliasChoices("requirement_id", "requirementId", "id"),
     )
     category: Optional[str] = None
+    semantic_type: Optional[Any] = Field(
+        default=None,
+        validation_alias=AliasChoices("semantic_type", "semanticType"),
+    )
     title: Optional[str] = Field(
         default=None, validation_alias=AliasChoices("title", "name")
     )
@@ -155,6 +160,10 @@ class LLMSimpleRequirement(LenientBase):
         validation_alias=AliasChoices("requirement_id", "requirementId", "id"),
     )
     category: Optional[Any] = None
+    semantic_type: Optional[Any] = Field(
+        default=None,
+        validation_alias=AliasChoices("semantic_type", "semanticType"),
+    )
     title: Optional[Any] = Field(
         default=None, validation_alias=AliasChoices("title", "name")
     )
@@ -317,13 +326,24 @@ def parse_category(value: Any) -> str:
     return RequirementCategory.OTHER.value
 
 
-def parse_threshold(value: Any) -> Optional[Dict[str, Any]]:
-    """Accept dict | numeric string ("180 days", "115637000 INR") | list (take first)."""
+def parse_threshold(
+    value: Any, context: str = ""
+) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
+    """Parse a threshold into (threshold_dict_or_None, review_flag_or_None).
+
+    - Infers the comparison operator from comparison words in the threshold
+      text *and* surrounding context (title/original text): minimum-style
+      wording -> ">=", maximum-style -> "<=", exact -> "=", approximate -> "~".
+    - Scales Indian monetary units: lakh/lac x1e5, crore x1e7 (unit recorded
+      as INR; the verbatim expression is always preserved in original_value).
+    - NEVER converts an unknown/non-numeric threshold into zero: value stays
+      None with operator "unknown", and a review flag is returned.
+    """
     if value is None:
-        return None
+        return None, None
     if isinstance(value, list):
         if not value:
-            return None
+            return None, None
         value = value[0]
     if isinstance(value, dict):
         raw_val = value.get("value")
@@ -333,18 +353,250 @@ def parse_threshold(value: Any) -> Optional[Dict[str, Any]]:
             or value.get("originalValue")
             or str(value.get("value", ""))
         )
-        return {
-            "operator": value.get("operator") or "=",
-            "value": _coerce_float(raw_val),
-            "unit": _clean(str(unit or ""), 100),
-            "original_value": _clean(str(original or ""), 500),
-        }
-    # Plain string / number, e.g. "180 days", "115637000 INR (partial relaxation)"
+        number = _extract_number(raw_val)
+        if number is None:
+            number = _extract_number(original)
+        if number is None:
+            return (
+                {
+                    "operator": "unknown",
+                    "value": None,
+                    "unit": _clean(str(unit or ""), 100),
+                    "original_value": _clean(str(original or ""), 500),
+                },
+                f"Threshold '{original}' has no parseable numeric value",
+            )
+        scaled, unit_out = _apply_unit_scale(number, f"{original} {unit}")
+        return (
+            {
+                "operator": value.get("operator")
+                or _infer_operator(f"{original} {unit} {context}", has_number=True),
+                "value": scaled,
+                "unit": _clean(unit_out, 100),
+                "original_value": _clean(str(original or ""), 500),
+            },
+            None,
+        )
+    # Plain string / number, e.g. "minimum 115637000 INR", "within 45 days".
     text = _clean(str(value), 500)
-    m = _NUMBER_RE.search(text.replace(",", ""))
-    num = float(m.group(0)) if m else 0.0
-    unit = text[m.end():].strip(" ()") if m else ""
-    return {"operator": "=", "value": num, "unit": unit, "original_value": text}
+    if _looks_like_date(text):
+        return (
+            {
+                "operator": "unknown",
+                "value": None,
+                "unit": "",
+                "original_value": text,
+            },
+            f"Threshold '{text}' looks like a date, not a numeric threshold",
+        )
+    number = _extract_number(text)
+    if number is None:
+        return (
+            {
+                "operator": "unknown",
+                "value": None,
+                "unit": "",
+                "original_value": text,
+            },
+            f"Threshold '{text}' has no parseable numeric value",
+        )
+    scaled, unit_out = _apply_unit_scale(number, text)
+    full_text = f"{text} {context}"
+    return (
+        {
+            "operator": _infer_operator(full_text, has_number=True),
+            "value": scaled,
+            "unit": unit_out,
+            "original_value": text,
+        },
+        None,
+    )
+
+
+def _extract_number(text: Any) -> Optional[float]:
+    """First parseable number in text, or None — never a guessed zero."""
+    try:
+        if isinstance(text, bool):
+            return None
+        if isinstance(text, (int, float)):
+            return float(text)
+        m = _NUMBER_RE.search(str(text).replace(",", ""))
+        return float(m.group(0)) if m else None
+    except (ValueError, TypeError, AttributeError):
+        return None
+
+
+def _apply_unit_scale(number: float, text: Any) -> Tuple[float, str]:
+    """Scale lakh/lac/crore into value; return (value, unit).
+
+    The verbatim expression always survives in original_value, so expressing
+    "1156.37 Lakh" as value=115637000.0/unit="INR" loses nothing.
+    """
+    s = str(text)
+    stripped = s.replace(",", "")
+    m = _NUMBER_RE.search(stripped)
+    remainder = stripped[m.end():] if m else s
+    low = remainder.lower()
+    scale = 1.0
+    if re.search(r"\bcrore?s?\b", low):
+        scale = 1e7
+        remainder = re.sub(r"(?i)\bcrore?s?\b", "", remainder)
+    elif re.search(r"\b(lakh|lac)s?\b", low):
+        scale = 1e5
+        remainder = re.sub(r"(?i)\b(lakh|lac)s?\b", "", remainder)
+    unit = _clean_unit(remainder)
+    if scale != 1.0 and unit.lower() in ("", "rs", "rs.", "inr", "\u20b9", "rupees", "re", "inr."):
+        unit = "INR"
+    # Round to paise: kills float dust (1156.37*1e5 -> 115636999.99999999).
+    return round(number * scale, 2), unit
+
+
+def _clean_unit(remainder: str) -> str:
+    """Tidy a unit fragment: drop "(qualifiers)", commas, extra spaces."""
+    s = re.split(r"[\(,;\|]", remainder)[0].strip()
+    s = re.sub(r"\s+", " ", s).strip(" .")
+    return s[:60]
+
+
+def _looks_like_date(text: str) -> bool:
+    """Spot date-like strings so they are never parsed as numeric thresholds."""
+    t = text.strip()
+    return bool(
+        re.match(r"^\d{1,2}[-/]\d{1,2}[-/]\d{2,4}", t)
+        or re.match(r"^\d{4}-\d{1,2}-\d{1,2}", t)
+    )
+
+
+def _reframe_exemption_threshold(
+    threshold: Dict[str, Any],
+    original: str,
+    condition: Optional[str],
+    prior_flag: Optional[str] = None,
+) -> Tuple[Dict[str, Any], Optional[str]]:
+    """Reframe an exemption's numeric threshold as scope reference (P2).
+
+    A relaxation "up to 115637000 INR" describes the base requirement being
+    relieved, not a floor the bidder must clear. The number is preserved
+    verbatim in original_value, but value/operator are withdrawn so the
+    exemption can never read as an obligation — nor collide in contradiction
+    detection. Full exemption is only stated when the source says so. Any
+    pre-existing parse flag is preserved alongside the scope flag.
+    """
+    blob = f"{original} {condition or ''} {threshold.get('original_value', '')}".lower()
+    reframed = {
+        "operator": "unknown",
+        "value": None,
+        "unit": threshold.get("unit", ""),
+        "original_value": threshold.get("original_value", ""),
+    }
+    if re.search(r"\b(partial|partly|proportionate|relaxation|relaxed|rebate)\b", blob):
+        scope_flag: Optional[str] = (
+            f"Partial exemption scope '{reframed['original_value']}' — verify extent of "
+            f"relief; never treated as full exemption"
+        )
+    elif re.search(r"\b(full|fully|complete(?:ly)?|entire(?:ly)?|100\s*%|wholly)\b", blob):
+        scope_flag = None
+    else:
+        scope_flag = (
+            f"Exemption scope unclear '{reframed['original_value']}' — verify extent of relief"
+        )
+    if prior_flag and prior_flag not in (scope_flag or ""):
+        combined = f"{scope_flag}; {prior_flag}" if scope_flag else prior_flag
+        return reframed, combined
+    return reframed, scope_flag
+
+
+def link_exemptions(
+    requirements: List[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    """Attach each exemption to its base requirement (P2).
+
+    Matches on same category + title equivalence with a non-exemption
+    requirement holding a numeric threshold (e.g. MSE turnover relaxation ->
+    minimum turnover). Sets depends_on and rewrites the description to name
+    the base explicitly. Idempotent: already-linked exemptions are skipped.
+    """
+    for req in requirements:
+        if req.get("semantic_type") != "EXEMPTION":
+            continue
+        desc = str(req.get("normalized_description") or "")
+        if req.get("depends_on") and "relief from" in desc:
+            continue  # already linked by a previous pass
+        base = None
+        for cand in requirements:
+            if cand is req or cand.get("semantic_type") == "EXEMPTION":
+                continue
+            if _enum_value(cand.get("category")) != _enum_value(req.get("category")):
+                continue
+            if (cand.get("threshold") or {}).get("value") is None:
+                continue
+            if titles_equivalent(
+                str(cand.get("title", "")), str(req.get("title", ""))
+            ):
+                base = cand
+                break
+        if base is None:
+            continue
+        base_id = str(base.get("requirement_id"))
+        req["depends_on"] = [base_id]
+        blob = (
+            f"{req.get('original_text', '')} {req.get('applicability_condition') or ''}"
+        ).lower()
+        partial = bool(
+            re.search(
+                r"\b(partial|partly|proportionate|relaxation|relaxed|rebate)\b", blob
+            )
+        )
+        base_title = str(base.get("title", "")).strip()
+        cond = (req.get("applicability_condition") or "").strip()
+        desc = (
+            f"Exemption ({'partial' if partial else 'unspecified'} relief from "
+            f"{base_id} — {base_title}): {str(req.get('title', '')).strip()}."
+        )
+        if cond:
+            desc += f" Applies when: {cond}."
+        ev = req.get("required_evidence") or []
+        if ev:
+            desc += " Provide: " + "; ".join(ev) + "."
+        req["normalized_description"] = _clean(desc, 2000)
+        flag = (
+            "Partial exemption scope — verify extent of relief"
+            if partial
+            else "Exemption scope unclear — verify extent of relief and base requirement"
+        )
+        reasons = (req.get("review_reason") or "")
+        if flag not in reasons:
+            req["review_reason"] = _clean(
+                (reasons + "; " + flag).strip("; "), 1000
+            )
+        req["needs_review"] = True
+    return requirements
+
+
+_MIN_RE = re.compile(
+    r"\b(minimum|min|at least|atleast|not less than|greater than|more than|"
+    r"above|over|exceeding|in excess of)\b|>="
+)
+_MAX_RE = re.compile(
+    r"\b(maximum|max|up to|upto|at most|atmost|not more than|not exceeding|"
+    r"within|no more than|less than|below|under|capped at|ceiling)\b|<="
+)
+_APPROX_RE = re.compile(r"\b(about|around|approx(?:imate(?:ly)?)?|roughly|circa)\b|~")
+_EXACT_RE = re.compile(r"\b(exactly|equal to|equals)\b|(?<![<>!])=(?!=)")
+
+
+def _infer_operator(text: str, has_number: bool = True) -> str:
+    """Infer >=, <=, =, ~ from comparison wording. Defaults to exact."""
+    low = text.lower()
+    if _MIN_RE.search(low):
+        return ">="
+    if _MAX_RE.search(low):
+        return "<="
+    if _APPROX_RE.search(low):
+        return "~"
+    if _EXACT_RE.search(low):
+        return "="
+    return "=" if has_number else "unknown"
 
 
 def _normalize_source_ref(
@@ -369,6 +621,306 @@ def _normalize_source_ref(
         "section_heading": _clean(str(section), 500) if section else None,
         "source_excerpt": _clean(str(excerpt or fallback_excerpt or ""), 2000),
     }
+
+
+# ---------------------------------------------------------------------------
+# Semantic classification (P5): what KIND of clause is this?
+# ---------------------------------------------------------------------------
+
+_PROHIBITION_MARKERS = (
+    "shall not", "must not", "cannot ", "can not ", "not permitted",
+    "not allowed", "prohibit", "debar", "no bidder", "bids will be rejected",
+    "bid will be rejected", "liable for rejection",
+)
+_EXEMPTION_MARKERS = (
+    "exempt", "relaxation", "waiver", "waived", "not applicable to",
+    "startup", "mse", "micro and small", "shall be relaxed",
+)
+_BUYER_DISCRETION_MARKERS = (
+    "buyer may", "buyer can", "at the discretion", "reserves the right",
+    "reserve the right", "option clause", "buyer reserves", "sole discretion",
+    "decision of the buyer",
+)
+_ELIGIBILITY_MARKERS = (
+    "eligib", "minimum", "at least", "criteria", "past experience",
+    "average annual turnover", "required experience", "pre-qualif",
+    "must possess", "should possess",
+)
+_RESTRICTION_MARKERS = (
+    "only ", "restricted", "limitation", "limited to", "exclusively",
+    "no more than", "subject to",
+)
+_CONTRACTUAL_MARKERS = (
+    "contract", "warranty", "penalty", "penalties", "payment", "sdac",
+    "agreement", "extension", "option clause",
+)
+_OBLIGATION_MARKERS = (
+    "shall", "must", "mandatory", "required", "should ", "upload",
+    "submit", "provide", "ensure", "furnish", "enclose",
+)
+_INFORMATIONAL_MARKERS = (
+    "click here", "uploaded by", "buyer uploaded", "uploaded ",
+    "for reference", "details below", "file attachment", "annex",
+    "enclosed", "for information",
+)
+_CONDITIONAL_MARKERS = (
+    "if ", "only if", "applicable", "conditional", "subject to",
+    "in case", "where ", "provided that", "requires consent", "consent of",
+)
+
+
+def _has_any(text: str, markers: tuple) -> bool:
+    return any(m in text for m in markers)
+
+
+def classify_semantics(
+    title: str, original_text: str, model_value: Any = None
+) -> Tuple[str, bool]:
+    """Return (SemanticType value, strong_match).
+
+    Deterministic keyword classification over title + original text. A
+    model's suggestion is honoured only when no strong marker fires and the
+    suggestion maps to a known type. Priority order matters: prohibitions and
+    exemptions are checked before generic obligation wording so negations and
+    relaxations are never flattened into "must do X".
+    """
+    from app.models.tender import SemanticType
+
+    valid = {t.value for t in SemanticType}
+    text = f"{title or ''} {original_text or ''}".lower()
+
+    model_mapped: Optional[str] = None
+    if model_value:
+        cand = str(model_value).strip().upper().replace(" ", "_").replace("-", "_")
+        if cand in valid:
+            model_mapped = cand
+
+    if _has_any(text, _PROHIBITION_MARKERS):
+        return SemanticType.PROHIBITION.value, True
+    if _has_any(text, _EXEMPTION_MARKERS):
+        return SemanticType.EXEMPTION.value, True
+    if _has_any(text, _BUYER_DISCRETION_MARKERS):
+        return SemanticType.BUYER_DISCRETION.value, True
+    if _has_any(text, _ELIGIBILITY_MARKERS):
+        return SemanticType.ELIGIBILITY_CONDITION.value, True
+    if _has_any(text, _RESTRICTION_MARKERS):
+        return SemanticType.RESTRICTION.value, True
+    if _has_any(text, _CONTRACTUAL_MARKERS):
+        return SemanticType.CONTRACTUAL_TERM.value, True
+    if _has_any(text, _INFORMATIONAL_MARKERS):
+        return SemanticType.INFORMATIONAL.value, True
+    if model_mapped:
+        return model_mapped, False
+    if _has_any(text, _OBLIGATION_MARKERS):
+        return SemanticType.BIDDER_OBLIGATION.value, True
+    return SemanticType.INFORMATIONAL.value, False
+
+
+def refine_mandatory(
+    mandatory: Optional[bool],
+    condition: Optional[str],
+    title: str,
+    original_text: str,
+) -> Tuple[Optional[bool], Optional[str]]:
+    """Conservative mandatory post-processing (P5).
+
+    Explicit model values are never flipped. Only None is resolved, using
+    strong wording signals — and conditional wording always wins over
+    obligation wording so "must ... if ..." stays conditional.
+    Returns (mandatory, condition) with condition possibly enriched.
+    """
+    if mandatory is not None:
+        return mandatory, condition
+    text = f"{title or ''} {original_text or ''} {condition or ''}".lower()
+    if _has_any(text, _CONDITIONAL_MARKERS):
+        return None, condition
+    if _has_any(text, _PROHIBITION_MARKERS):
+        return True, condition
+    # Informational / buyer-discretion wording beats generic obligation
+    # verbs: "buyer uploaded ..." contains "upload" but is no bidder duty.
+    if _has_any(text, _BUYER_DISCRETION_MARKERS) or _has_any(text, _INFORMATIONAL_MARKERS):
+        return False, condition
+    if _has_any(text, _OBLIGATION_MARKERS):
+        return True, condition
+    return None, condition
+
+
+# ---------------------------------------------------------------------------
+# Title equivalence (P1-contradiction): compare only semantically equivalent
+# requirements, never everything sharing a category+unit.
+# ---------------------------------------------------------------------------
+
+_EQUIV_STOPWORDS = frozenset({
+    "the", "a", "an", "of", "for", "and", "to", "in", "on", "by",
+    "bidder", "bid", "bids", "requirement", "requirements", "details",
+    "detail", "clause", "service", "services", "tender", "gem",
+})
+
+
+def _content_tokens(title: str) -> frozenset:
+    return frozenset(
+        t for t in re.findall(r"[a-z0-9]+", title.lower())
+        if t not in _EQUIV_STOPWORDS and len(t) > 1
+    )
+
+
+def titles_equivalent(t1: str, t2: str, threshold: float = 0.5) -> bool:
+    """True when two titles plausibly denote the same measure.
+
+    Token overlap over stopword-filtered content words; identical topic keys
+    always match. 'Minimum average annual turnover' vs 'Estimated bid value'
+    scores 0 and is never compared; 'Minimum turnover' vs 'Bidder turnover
+    requirement' shares 'turnover' and is compared.
+    """
+    if not t1 or not t2:
+        return False
+    a, b = _content_tokens(t1), _content_tokens(t2)
+    if not a or not b:
+        return False
+    return len(a & b) / min(len(a), len(b)) >= threshold
+
+
+def _enum_value(value: Any) -> str:
+    """Display-safe category/semantic value.
+
+    model_dump() keeps classic str-Enum members, and str() of those renders
+    as "RequirementCategory.X" — so unwrap Enum before the str check.
+    """
+    if isinstance(value, Enum):
+        return str(value.value)
+    if isinstance(value, str):
+        return value
+    return str(value)
+
+
+# ---------------------------------------------------------------------------
+# Normalized descriptions (P3): deterministic, restating, never inventing.
+# ---------------------------------------------------------------------------
+
+_SEMANTIC_PREFIX = {
+    "BIDDER_OBLIGATION": "Bidder must",
+    "ELIGIBILITY_CONDITION": "Eligibility",
+    "EXEMPTION": "Exemption",
+    "BUYER_DISCRETION": "Buyer may",
+    "PROHIBITION": "Prohibition",
+    "RESTRICTION": "Restriction",
+    "CONTRACTUAL_TERM": "Contract term",
+    "INFORMATIONAL": "Note",
+}
+
+_OPERATOR_PHRASE = {">=": "at least", "<=": "at most", "=": "exactly", "~": "approximately"}
+
+
+def fmt_number(value: float) -> str:
+    """Human-readable number for descriptions: 50000000 -> "50,000,000"."""
+    try:
+        if float(value).is_integer():
+            return f"{int(value):,}"
+        return f"{round(float(value), 2):,}"
+    except (ValueError, TypeError):
+        return str(value)
+
+
+def compose_normalized_description(
+    *,
+    title: str,
+    mandatory: Optional[bool],
+    threshold: Optional[Dict[str, Any]],
+    condition: Optional[str],
+    evidence: List[str],
+    semantic_type: str,
+    deadlines: Optional[List[str]] = None,
+    original: str = "",
+) -> Tuple[Optional[str], Optional[str]]:
+    """Build normalized_description from parsed fields only.
+
+    Returns (description_or_None, review_flag_or_None). Every branch restates
+    extracted facts behind an accurate semantic label — deadlines read as
+    constraints/dates (never generic bidder actions), informational figures
+    as reference figures (never binding thresholds), prohibitions keep their
+    negation via the source wording, and bare "Prefix: Title." tautologies
+    gain source detail instead. Nothing is invented: when no reliable
+    interpretation exists the description stays None with a flag.
+    """
+    deadlines = deadlines or []
+    generic_titles = {"", "requirement", "note", "tender requirement", "information"}
+    clean_title = title.strip() if title else ""
+    has_title = bool(clean_title and clean_title.lower() not in generic_titles)
+    has_threshold = bool(threshold and threshold.get("value") is not None)
+    has_substance = bool(
+        condition or evidence or deadlines or has_threshold or mandatory is not None
+    )
+    if not has_title or not has_substance:
+        return None, "Normalized description unavailable — meaning cannot be established reliably"
+
+    # Deadline-driven clauses: constraints or dates, not generic actions.
+    # An explicit mandatory=True is a submission constraint even when the
+    # wording looks informational; mandatory=False (or undecided
+    # informational) is a date, not a duty.
+    if deadlines:
+        date = deadlines[0]
+        if mandatory is False or (mandatory is None and semantic_type == "INFORMATIONAL"):
+            head = f"Informational date: {clean_title} — {date}."
+        else:
+            head = f"Submission constraint: {clean_title} — {date}."
+        tail = ""
+        if condition and date not in condition:
+            tail += f" Applies when: {condition.strip()}."
+        if evidence:
+            tail += " Provide: " + "; ".join(evidence) + "."
+        return head + tail, None
+
+    prefix = _SEMANTIC_PREFIX.get(semantic_type, "Requirement")
+    # Informational figures are reference data, never binding thresholds.
+    if semantic_type == "INFORMATIONAL" and has_threshold:
+        unit = f" {threshold['unit']}" if threshold.get("unit") else ""
+        figure = f"{fmt_number(threshold['value'])}{unit}"
+        desc = f"Reference figure: {clean_title} — {figure}"
+        verbatim = (threshold.get("original_value", "") or "").strip()
+        # Skip the parenthetical when it merely echoes the formatted figure.
+        if verbatim and verbatim.lower() != figure.lower():
+            desc += f" ({verbatim})"
+        desc += "."
+        if evidence:
+            desc += " Provide: " + "; ".join(evidence) + "."
+        return desc, None
+
+    parts = [f"{prefix}: {clean_title}."]
+    if has_threshold:
+        op = _OPERATOR_PHRASE.get(threshold.get("operator", "="), "exactly")
+        unit = f" {threshold['unit']}" if threshold.get("unit") else ""
+        parts.append(f"Threshold: {op} {fmt_number(threshold['value'])}{unit}.")
+    elif threshold is not None:
+        # Qualitative threshold with verbatim wording but no number.
+        parts.append(f"Threshold (unquantified): {threshold.get('original_value')}.")
+    if condition:
+        parts.append(f"Applies when: {condition.strip()}.")
+    elif mandatory is False:
+        parts.append("Not mandatory.")
+    if evidence:
+        parts.append("Provide: " + "; ".join(evidence) + ".")
+    # Prohibitions carry their negation in the source wording — restate it so
+    # "Prohibition: <label>." never stands alone without the actual ban.
+    if semantic_type == "PROHIBITION" and original:
+        snippet = _snippet(original)
+        if snippet.lower() not in clean_title.lower() and clean_title.lower() not in snippet.lower():
+            parts.append(f"Details: {snippet}.")
+    # Bare "Prefix: Title." adds nothing over the title — ground it with the
+    # source excerpt instead of emitting a tautology.
+    if len(parts) == 1 and original:
+        snippet = _snippet(original)
+        if snippet and snippet.lower() != clean_title.lower():
+            parts.append(f"Details: {snippet}.")
+    return " ".join(parts), None
+
+
+def _snippet(original: str, limit: int = 220) -> str:
+    """Truncate source wording at a word boundary for description detail."""
+    text = re.sub(r"\s+", " ", original.strip())
+    if len(text) <= limit:
+        return text
+    cut = text.rfind(" ", 0, limit)
+    return text[: cut if cut > limit // 2 else limit]
 
 
 def normalize_metadata(data: Any) -> Dict[str, Any]:
@@ -396,6 +948,15 @@ def normalize_metadata(data: Any) -> Dict[str, Any]:
             _clean(str(k), 200): _clean(str(v), 2000) if isinstance(v, str) else v
             for k, v in clean["other_metadata"].items()
         }
+    # Promote title-like keys hiding in other_metadata (P5): the model
+    # sometimes files the title under a variant key instead of tender_title.
+    if not clean.get("tender_title") and isinstance(clean.get("other_metadata"), dict):
+        for key in ("tender_title", "title", "work_title", "project_title",
+                    "tender_name", "name_of_work", "work_name"):
+            candidate = clean["other_metadata"].get(key)
+            if isinstance(candidate, str) and candidate.strip():
+                clean["tender_title"] = _clean(candidate.strip(), 2000)
+                break
     if not isinstance(clean.get("other_metadata"), dict):
         # Keep stray keys instead of dropping them.
         extras = {k: v for k, v in raw.items() if k not in allowed}
@@ -418,21 +979,83 @@ def _simple_to_canonical(d: Dict[str, Any]) -> Dict[str, Any]:
     return d
 
 
+# ---------------------------------------------------------------------------
+# Referenced-attachment detection (P4/P6): buyer-side documents cited in the
+# tender (ATC, SLA, annexures...) that are NOT part of the analyzed PDF.
+# Distinct from required_evidence (documents the *bidder* must submit).
+# ---------------------------------------------------------------------------
+
+_ATTACHMENT_PATTERNS = (
+    (r"\batc\b", "ATC document"),
+    (r"\bsla\b", "SLA document"),
+    (r"annexures?", "annexure"),
+    (r"appendix|appendices", "appendix"),
+    (r"addendum|addenda", "addendum"),
+    (r"corrigendum|corrigenda", "corrigendum"),
+    (r"amendments?", "amendment"),
+    (r"enclosures?", "enclosure"),
+    (r"click here to view", "linked file (click here to view)"),
+    (r"file attachments?", "file attachment"),
+    (r"buyer added bid specific", "buyer-added bid-specific document"),
+)
+
+
+def find_attachment_refs(*texts: Any) -> List[str]:
+    """Detect references to annexures/ATC/SLA/attachments in free text.
+
+    Returns short display labels, longest-match-wins per region (so
+    "annexure" does not also report "annex"). Word boundaries guard short
+    tokens like ATC/SLA against mid-word matches.
+    """
+    blob = " ".join(str(t) for t in texts if t).lower()
+    found: List[str] = []
+    for pattern, label in _ATTACHMENT_PATTERNS:
+        if re.search(pattern, blob) and label not in found:
+            found.append(label)
+    return found
+
+
+def _clean_strict(d: Dict[str, Any]) -> Dict[str, Any]:
+    """Sanitize strings inside an already-strict requirement dict (one level)."""
+    out = dict(d)
+    for k, v in out.items():
+        if isinstance(v, str):
+            out[k] = _clean(v, 4000)
+        elif isinstance(v, list):
+            out[k] = [
+                {kk: (_clean(vv, 2000) if isinstance(vv, str) else vv) for kk, vv in i.items()}
+                if isinstance(i, dict)
+                else (_clean(i, 1000) if isinstance(i, str) else i)
+                for i in v
+            ]
+        elif isinstance(v, dict):
+            out[k] = {kk: (_clean(vv, 2000) if isinstance(vv, str) else vv) for kk, vv in v.items()}
+    return out
+
+
 def normalize_requirement(
     item: Any,
     document_name: str,
     default_page: int = 1,
     index: int = 0,
 ) -> Dict[str, Any]:
-    """Lenient LLM requirement (model | dict | mock) -> strict TenderRequirement dict."""
+    """Lenient LLM requirement (model | dict | mock) -> strict TenderRequirement dict.
+
+    Pipeline per requirement: extract raw fields -> infer threshold operator
+    with title/original context -> conservative mandatory resolution ->
+    semantic classification -> deterministic normalized description ->
+    specific review reasons. Serious gaps (empty source text, unparseable
+    thresholds, missing excerpts) always set needs_review with an
+    explanation — they can never pass silently.
+    """
     if isinstance(item, LLMSimpleRequirement):
         # Flat primary shape: remap to canonical keys, then run the same path.
         item = _simple_to_canonical(item.model_dump())
     if hasattr(item, "model_dump") and callable(getattr(item, "model_dump")) and not isinstance(item, LLMRequirement):
-        # Duck-typed strict shapes (e.g. test mocks whose model_dump returns a
-        # strict dict): validate directly, fall back to raw-dict parsing.
+        # Already-strict shapes (e.g. test mocks whose model_dump returns a
+        # strict dict): validate directly, sanitizing strings on the way.
         try:
-            return TenderRequirement(**item.model_dump()).model_dump()
+            return _clean_strict(TenderRequirement(**item.model_dump()).model_dump())
         except Exception:
             try:
                 raw = dict(item.model_dump())
@@ -477,16 +1100,38 @@ def normalize_requirement(
     ]
     if notes:
         applicability_parts.extend(_as_str_list(notes))
+    # A bare deadline ("Deadlines: ...") is informative, not conditional —
+    # only genuine condition text marks the requirement conditional (P6).
+    has_real_condition = bool(applicability_parts)
     if deadlines:
         applicability_parts.append("Deadlines: " + "; ".join(deadlines))
     applicability = "; ".join(applicability_parts) or None
+    # Conservative resolution of undecided mandatory (explicit values win).
+    mandatory, applicability = refine_mandatory(
+        mandatory, applicability, str(title), str(original)
+    )
 
     threshold_raw = _pick("threshold")
     if threshold_raw is None:
         threshold_raw = _pick("thresholds")
-    threshold = parse_threshold(threshold_raw)
+    threshold, threshold_flag = parse_threshold(
+        threshold_raw, context=f"{title} {original}"
+    )
 
     evidence = _as_str_list(_pick("required_evidence", "evidence"))
+
+    semantic_type, _ = classify_semantics(
+        str(title), str(original), model_value=_pick("semantic_type")
+    )
+
+    # Exemptions/relaxations are relief from a base requirement — never an
+    # ordinary threshold the bidder must satisfy (P2). Keep the verbatim
+    # wording and unit, but drop the numeric obligation framing; the base
+    # link is attached later by link_exemptions().
+    if semantic_type == "EXEMPTION" and threshold is not None:
+        threshold, threshold_flag = _reframe_exemption_threshold(
+            threshold, str(original), applicability, threshold_flag
+        )
 
     excerpt_fallback = str(original)[:2000]
     refs_raw = _pick("source_references", "sources", "references")
@@ -515,25 +1160,62 @@ def normalize_requirement(
             )
 
     needs_review_raw = _pick("needs_review")
-    if isinstance(needs_review_raw, bool):
-        needs_review = needs_review_raw
-    elif isinstance(needs_review_raw, str):
-        needs_review = needs_review_raw.strip().lower() in ("true", "yes", "1")
-    else:
-        needs_review = False
+    model_flagged = (
+        needs_review_raw is True
+        or (isinstance(needs_review_raw, str) and needs_review_raw.strip().lower() in ("true", "yes", "1"))
+    )
     review_reason = _pick("review_reason")
     synthesized_id = not _pick("requirement_id", "requirementId", "id")
-    if (synthesized_id or applicability_parts) and not needs_review:
-        # Conditional / ambiguous items and id-less items need human review,
-        # but preserve an explicit False only when nothing is suspicious.
-        if applicability_parts or synthesized_id:
-            needs_review = True
-            if not review_reason:
-                review_reason = (
-                    "Conditional or ambiguous requirement"
-                    if applicability_parts
-                    else "Requirement ID was auto-generated"
-                )
+
+    composed_description, description_flag = compose_normalized_description(
+        title=str(title),
+        mandatory=mandatory,
+        threshold=threshold,
+        condition=applicability,
+        evidence=evidence,
+        semantic_type=semantic_type,
+        deadlines=deadlines,
+        original=str(original),
+    )
+    # Prefer the deterministic composition; fall back to a model-supplied
+    # description only when composition is impossible (still flagged below).
+    normalized_description = composed_description
+    if normalized_description is None:
+        model_description = _pick("normalized_description", "normalizedDescription")
+        if isinstance(model_description, str) and model_description.strip():
+            normalized_description = model_description.strip()
+
+    # Specific, actionable review reasons (P6) — generic one-liners removed.
+    reasons: List[str] = []
+    if synthesized_id:
+        reasons.append(
+            f"Requirement ID auto-generated as '{req_id}' (model omitted requirement_id)"
+        )
+    if threshold_flag:
+        reasons.append(threshold_flag)
+    if mandatory is None and has_real_condition:
+        cond = applicability if len(applicability) <= 200 else applicability[:200] + "..."
+        reasons.append(f"Conditional requirement — applies when: {cond}")
+    attachments = find_attachment_refs(title, original, evidence, applicability)
+    if attachments:
+        reasons.append(
+            "References unavailable attachment: " + ", ".join(attachments[:3])
+        )
+    has_excerpt = any((r.get("source_excerpt") or "").strip() for r in refs)
+    if not refs or not has_excerpt:
+        reasons.append("No source excerpt captured — origin page unverified")
+    if not str(original).strip():
+        reasons.append("Empty source text — extraction unverified")
+    if description_flag:
+        reasons.append(description_flag)
+    category_value = parse_category(_pick("category"))
+    if category_value == RequirementCategory.OTHER.value:
+        reasons.append("Topic category defaulted to OTHER — verify classification")
+    if model_flagged and not reasons:
+        reasons.append("Flagged by extraction model (no specific reason given)")
+    if isinstance(review_reason, str) and review_reason.strip() and review_reason.strip() not in reasons:
+        reasons.append(review_reason.strip())
+    needs_review = bool(reasons) or model_flagged
 
     depends = _as_str_list(_pick("depends_on"))
     confidence_raw = _pick("confidence")
@@ -548,10 +1230,11 @@ def normalize_requirement(
 
     strict = {
         "requirement_id": _clean(str(req_id), 100),
-        "category": parse_category(_pick("category")),
+        "category": category_value,
+        "semantic_type": semantic_type,
         "title": _clean(str(title), 500),
         "original_text": _clean(str(original), 4000) or _clean(str(title), 4000),
-        "normalized_description": _clean(_pick("normalized_description"), 2000),
+        "normalized_description": _clean(normalized_description, 2000),
         "mandatory": mandatory,
         "applicability_condition": _clean(applicability, 2000),
         "threshold": threshold,
@@ -560,14 +1243,19 @@ def normalize_requirement(
         "depends_on": [_clean(d, 200) for d in depends],
         "confidence": confidence,
         "needs_review": needs_review,
-        "review_reason": _clean(review_reason, 1000),
+        "review_reason": _clean("; ".join(reasons) or None, 1000),
     }
     return TenderRequirement(**strict).model_dump()
 
 
 def normalize_requirement_list(
-    data: Any, document_name: str, default_page: int = 1
+    data: Any, document_name: str, default_page: int = 1, start_index: int = 0
 ) -> List[Dict[str, Any]]:
+    """Normalize one chunk's requirements.
+
+    start_index is the global running offset so auto-generated IDs
+    (R-{n}) never restart numbering per chunk (P1).
+    """
     if isinstance(data, dict):
         items = data.get("requirements", []) or []
     else:
@@ -582,7 +1270,58 @@ def normalize_requirement_list(
     out: List[Dict[str, Any]] = []
     for idx, item in enumerate(items):
         try:
-            out.append(normalize_requirement(item, document_name, default_page, idx))
+            out.append(
+                normalize_requirement(item, document_name, default_page, start_index + idx)
+            )
         except Exception:
             continue  # skip unrecoverable items, keep the rest
     return out
+
+
+def _dedup_key(req: Dict[str, Any]) -> str:
+    """Identity key for cross-chunk duplicates: normalized title + excerpt head."""
+    title = re.sub(r"\s+", " ", str(req.get("title", "")).strip().lower())
+    excerpt = re.sub(
+        r"\s+", " ", str(req.get("original_text", "")).strip().lower()
+    )[:200]
+    return f"{req.get('category', '')}||{title}||{excerpt}"
+
+
+def deduplicate_requirements(
+    requirements: List[Dict[str, Any]],
+) -> Tuple[List[Dict[str, Any]], List[str]]:
+    """Drop verbatim cross-chunk duplicates, keeping the FIRST occurrence.
+
+    Stable IDs are preserved: the kept requirement retains its ID; dropped
+    duplicate IDs are returned for reporting. Order is preserved.
+    """
+    seen: Dict[str, Dict[str, Any]] = {}
+    dropped: List[str] = []
+    for req in requirements:
+        key = _dedup_key(req)
+        if key in seen:
+            dropped.append(str(req.get("requirement_id", "?")))
+            continue
+        seen[key] = req
+    return list(seen.values()), dropped
+
+
+def ensure_unique_ids(
+    requirements: List[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    """Guarantee globally unique requirement IDs (P1).
+
+    The first occurrence of an ID is stable and untouched; later collisions
+    (the model restarts R1..Rn every chunk) get deterministic "-2", "-3", ...
+    suffixes in encounter order.
+    """
+    seen: Dict[str, int] = {}
+    for req in requirements:
+        base = str(req.get("requirement_id") or "R-?")
+        if base not in seen:
+            seen[base] = 1
+            req["requirement_id"] = base
+        else:
+            seen[base] += 1
+            req["requirement_id"] = f"{base}-{seen[base]}"
+    return requirements

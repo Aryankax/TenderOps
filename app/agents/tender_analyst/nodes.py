@@ -12,9 +12,13 @@ from app.agents.tender_analyst.llm_schemas import (
     LLMMetadata,
     LLMRequirementList,
     LLMSimpleRequirementList,
+    deduplicate_requirements,
+    ensure_unique_ids,
+    link_exemptions,
     normalize_metadata,
     normalize_requirement_list,
 )
+from app.agents.tender_analyst.issues import detect_issues
 from app.services.observability import observability
 
 # NOTE: Do NOT append PydanticOutputParser.get_format_instructions() to prompts
@@ -24,13 +28,32 @@ from app.services.observability import observability
 
 
 def get_llm(max_tokens: int | None = None):
+    """Primary LLM: LiteLLM OpenAI-compatible gateway (Groq is the fallback).
+
+    Falls back to Groq construction here only when LiteLLM is unconfigured,
+    so existing callers/tests keep working with zero changes.
+    """
+    if settings.LITELLM_API_KEY:
+        from langchain_openai import ChatOpenAI
+        return ChatOpenAI(
+            model=settings.LITELLM_MODEL,
+            api_key=settings.LITELLM_API_KEY,
+            base_url=settings.LITELLM_BASE_URL,
+            temperature=0.0,
+            max_tokens=max_tokens or settings.GROQ_MAX_TOKENS,
+        )
+    return get_groq_llm(max_tokens=max_tokens)
+
+
+def get_groq_llm(max_tokens: int | None = None):
+    """Fallback LLM: Groq, used when LiteLLM is over limit or failing."""
     if not settings.GROQ_API_KEY:
         raise ValueError("GROQ_API_KEY is missing from configuration.")
     # Default 3000: Groq's on_demand tier allows 8000 tokens/min and
     # max_tokens counts against that budget — 8192 raised 413
     # "Request too large ... Limit 8000, Requested 8192". Truncation risk
     # from a smaller completion budget is handled by capping chunk input
-    # (TENDER_ANALYST_MAX_CHUNK_CHARS) and asking for ≤15 requirements/chunk.
+    # (TENDER_ANALYST_MAX_CHUNK_CHARS) and asking for ≤10 requirements/chunk.
     return ChatGroq(
         model=settings.GROQ_MODEL,
         api_key=settings.GROQ_API_KEY,
@@ -88,8 +111,42 @@ def _is_rate_limit_error(exc: Exception) -> bool:
             "reduce your message size",
             "tokens per minute",
             "too many requests",
+            "overloaded",
+            "over limit",
+            "over quota",
+            "quota",
+            "usage limit",
+            "limit exceeded",
+            "insufficient",
+            "credit",
+            "budget",
             "413",
             "429",
+        )
+    )
+
+
+def _is_provider_down_error(exc: Exception) -> bool:
+    """Detect gateway/server-side outages worth switching providers for."""
+    msg = f"{type(exc).__name__}: {exc}".lower()
+    return _is_rate_limit_error(exc) or any(
+        token in msg
+        for token in (
+            "500",
+            "502",
+            "503",
+            "504",
+            "server error",
+            "service unavailable",
+            "bad gateway",
+            "gateway timeout",
+            "timeout",
+            "timed out",
+            "connection",
+            "unreachable",
+            "unauthorized",
+            "401",
+            "invalid api key",
         )
     )
 
@@ -157,75 +214,112 @@ def _invoke_structured(
 
     Returns the lenient parsed object. Callers normalize to strict models.
 
-    Rate-limit errors (413/429, TPM exhausted) get exponential backoff
-    between attempts instead of instant retries.
+    Provider order: LiteLLM gateway first, Groq as fallback when the gateway
+    is over limit, down, or its chain is exhausted. Rate-limit errors
+    (413/429, TPM exhausted) get exponential backoff between attempts
+    instead of instant retries.
     """
-    llm = get_llm()
     max_retries = max(1, settings.TENDER_ANALYST_MAX_RETRIES)
     last_exc: Exception | None = None
 
-    def _attempt_call(method: str, sch: Type[BaseModel], attempt: int, label: str):
-        nonlocal last_exc
+    providers = [("litellm", get_llm)]
+    if settings.GROQ_API_KEY:
+        providers.append(("groq", get_groq_llm))
+
+    for provider_name, factory in providers:
         try:
-            structured_llm = llm.with_structured_output(sch, method=method)  # type: ignore[arg-type]
-            # Nudge back to JSON-only on retries after a validation failure.
-            attempt_prompt = prompt + RETRY_NUDGE if attempt > 1 else prompt
-            return True, structured_llm.invoke(attempt_prompt)
-        except Exception as e:  # noqa: BLE001 — must catch provider errors to retry/fallback
+            llm = factory()
+        except Exception as e:  # noqa: BLE001 — unconfigured provider
             last_exc = e
             observability.log_error(
-                "structured_output_failed",
-                e,
-                operation=operation,
-                method=label,
-                attempt=attempt,
-                is_provider_error=_is_provider_error(e),
+                "provider_unavailable", e, operation=operation, provider=provider_name
             )
-            if _is_rate_limit_error(e):
-                _backoff_sleep(attempt, operation)
-            return False, None
-
-    for sch in (schema, *fallback_schemas):
-        for attempt in range(1, max_retries + 1):
-            ok, result = _attempt_call("json_mode", sch, attempt, f"json_mode:{sch.__name__}")
-            if ok:
-                return result
-
-    for attempt in range(1, max_retries + 1):
-        ok, result = _attempt_call("function_calling", schema, attempt, "function_calling")
-        if ok:
-            return result
-
-    # Final fallback: unconstrained generation, parse JSON manually.
-    for attempt in range(1, max_retries + 1):
-        try:
-            raw = llm.invoke(prompt + RETRY_NUDGE if attempt > 1 else prompt)
-            text = getattr(raw, "content", raw)
-            if isinstance(text, list):
-                text = "".join(
-                    getattr(b, "text", str(b)) for b in text  # type: ignore[attr-defined]
-                )
-            data = _extract_json_object(str(text))
-            for sch in (schema, *fallback_schemas):
-                try:
-                    return sch(**data)
-                except Exception:
-                    continue
-            # No schema accepted it — surface the primary schema's error.
-            return schema(**data)
-        except Exception as e:  # noqa: BLE001
-            last_exc = e
-            observability.log_error(
-                "structured_output_failed",
-                e,
-                operation=operation,
-                method="raw_json_fallback",
-                attempt=attempt,
-                is_provider_error=_is_provider_error(e),
-            )
-            if _is_rate_limit_error(e):
-                _backoff_sleep(attempt, operation)
             continue
+        if provider_name != "litellm":
+            observability.log_event(
+                "provider_fallback", operation=operation, provider=provider_name
+            )
+        abandoned = False
+
+        def _attempt_call(method: str, sch: Type[BaseModel], attempt: int, label: str):
+            nonlocal last_exc, abandoned
+            try:
+                structured_llm = llm.with_structured_output(sch, method=method)  # type: ignore[arg-type]
+                # Nudge back to JSON-only on retries after a validation failure.
+                attempt_prompt = prompt + RETRY_NUDGE if attempt > 1 else prompt
+                return True, structured_llm.invoke(attempt_prompt)
+            except Exception as e:  # noqa: BLE001 — must catch provider errors to retry/fallback
+                last_exc = e
+                observability.log_error(
+                    "structured_output_failed",
+                    e,
+                    operation=operation,
+                    method=label,
+                    attempt=attempt,
+                    provider=provider_name,
+                    is_provider_error=_is_provider_error(e),
+                )
+                if _is_rate_limit_error(e):
+                    _backoff_sleep(attempt, operation)
+                if _is_provider_down_error(e):
+                    # Gateway over limit / down / unreachable: its other
+                    # methods will fail the same way — stop burning its quota
+                    # and move to the fallback provider.
+                    abandoned = True
+                return False, None
+
+        for sch in (schema, *fallback_schemas):
+            for attempt in range(1, max_retries + 1):
+                ok, result = _attempt_call("json_mode", sch, attempt, f"json_mode:{sch.__name__}")
+                if ok:
+                    return result
+                if abandoned:
+                    break
+            if abandoned:
+                break
+
+        if not abandoned:
+            for attempt in range(1, max_retries + 1):
+                ok, result = _attempt_call("function_calling", schema, attempt, "function_calling")
+                if ok:
+                    return result
+                if abandoned:
+                    break
+
+        if not abandoned:
+            # Final fallback: unconstrained generation, parse JSON manually.
+            for attempt in range(1, max_retries + 1):
+                try:
+                    raw = llm.invoke(prompt + RETRY_NUDGE if attempt > 1 else prompt)
+                    text = getattr(raw, "content", raw)
+                    if isinstance(text, list):
+                        text = "".join(
+                            getattr(b, "text", str(b)) for b in text  # type: ignore[attr-defined]
+                        )
+                    data = _extract_json_object(str(text))
+                    for sch in (schema, *fallback_schemas):
+                        try:
+                            return sch(**data)
+                        except Exception:
+                            continue
+                    # No schema accepted it — surface the primary schema's error.
+                    return schema(**data)
+                except Exception as e:  # noqa: BLE001
+                    last_exc = e
+                    observability.log_error(
+                        "structured_output_failed",
+                        e,
+                        operation=operation,
+                        method="raw_json_fallback",
+                        attempt=attempt,
+                        provider=provider_name,
+                        is_provider_error=_is_provider_error(e),
+                    )
+                    if _is_rate_limit_error(e):
+                        _backoff_sleep(attempt, operation)
+                    if _is_provider_down_error(e):
+                        break
+                    continue
 
     assert last_exc is not None
     raise last_exc
@@ -247,7 +341,37 @@ def extract_metadata_node(state: TenderAnalystState) -> TenderAnalystState:
 
     try:
         result = _invoke_structured(LLMMetadata, prompt, operation="extract_metadata")
-        state["metadata"] = normalize_metadata(result)
+        metadata = normalize_metadata(result)
+        # Targeted second chance for a missing title (P5): the full-document
+        # prompt sometimes drops it while nailing everything else. One cheap
+        # focused call fills ONLY the gap; a still-missing title stays null
+        # and is reported via completeness, never invented.
+        if not metadata.get("tender_title"):
+            try:
+                retry_prompt = (
+                    "What is the title / name of work of this tender document?\n"
+                    "Reply with ONLY a raw JSON object like "
+                    '{"tender_title": "..."}. No preamble, no markdown fences.\n\n'
+                    f"Document Content:\n{content}"
+                )
+                retry_res = _invoke_structured(
+                    LLMMetadata, retry_prompt, operation="extract_metadata_title_retry"
+                )
+                retry_meta = normalize_metadata(retry_res)
+                if retry_meta.get("tender_title"):
+                    metadata["tender_title"] = retry_meta["tender_title"]
+                    state.setdefault("warnings", []).append(
+                        "tender_title recovered via targeted re-extraction."
+                    )
+            except Exception as retry_e:
+                state["validation_errors"].append(
+                    f"Title re-extraction failed: {str(retry_e)[:200]}"
+                )
+        if not metadata.get("tender_title"):
+            state.setdefault("warnings", []).append(
+                "tender_title unavailable — title could not be established reliably."
+            )
+        state["metadata"] = metadata
         observability.log_event("node_success", node="extract_metadata", tender_id=tender_id)
     except Exception as e:
         state["validation_errors"].append(f"Metadata extraction failed: {str(e)[:500]}")
@@ -295,7 +419,10 @@ def extract_requirements_by_chunk_node(state: TenderAnalystState) -> TenderAnaly
                 operation=f"extract_requirements_chunk_{i}",
                 fallback_schemas=(LLMRequirementList,),
             )
-            normalized = normalize_requirement_list(res, document_name, default_page)
+            # Global offset: auto-generated IDs never restart per chunk (P1).
+            normalized = normalize_requirement_list(
+                res, document_name, default_page, start_index=len(all_requirements)
+            )
             if not normalized:
                 state["validation_errors"].append(
                     f"Chunk {i} extraction returned no usable requirements."
@@ -303,10 +430,39 @@ def extract_requirements_by_chunk_node(state: TenderAnalystState) -> TenderAnaly
             all_requirements.extend(normalized)
         except Exception as e:
             state["validation_errors"].append(f"Chunk {i} extraction failed: {str(e)[:500]}")
+            state.setdefault("failed_chunks", []).append(i)
             observability.log_error("chunk_error", e, chunk_index=i, tender_id=tender_id)
 
-    state["requirements"] = all_requirements
-    observability.log_event("node_success", node="extract_requirements", tender_id=tender_id, total_requirements=len(all_requirements))
+    # Merge the chunks here (P1): drop verbatim duplicates (first wins, IDs
+    # stable) and guarantee globally unique IDs, so the detect_issues node
+    # and assemble step below all reference identical IDs. Assemble re-runs
+    # the same idempotent merge as a safety net for direct callers.
+    merged, dropped = deduplicate_requirements(all_requirements)
+    if dropped:
+        state.setdefault("warnings", []).append(
+            f"Deduplicated {len(dropped)} repeated requirement(s): {', '.join(dropped[:10])}"
+            + ("" if len(dropped) <= 10 else f" (+{len(dropped) - 10} more)")
+        )
+    state["requirements"] = link_exemptions(ensure_unique_ids(merged))
+    observability.log_event("node_success", node="extract_requirements", tender_id=tender_id, total_requirements=len(state["requirements"]))
+    return state
+
+
+def detect_issues_node(state: TenderAnalystState) -> TenderAnalystState:
+    """Cross-chunk findings: missing attachments + contradictions (P4)."""
+    tender_id = state.get("tender_id", "unknown")
+    observability.log_event("node_start", node="detect_issues", tender_id=tender_id)
+    try:
+        issues = detect_issues(
+            state.get("requirements", []),
+            state.get("metadata", {}),
+            state.get("document_name", ""),
+        )
+        state["issues"] = issues
+        observability.log_event("node_success", node="detect_issues", tender_id=tender_id, total_issues=len(issues))
+    except Exception as e:
+        state["validation_errors"].append(f"Issue detection failed: {str(e)[:300]}")
+        observability.log_error("node_error", e, node="detect_issues", tender_id=tender_id)
     return state
 
 
@@ -314,8 +470,31 @@ def assemble_final_result_node(state: TenderAnalystState) -> TenderAnalystState:
     tender_id = state.get("tender_id", "unknown")
     observability.log_event("node_start", node="assemble_final", tender_id=tender_id)
 
+    # Merge point (P1): drop verbatim cross-chunk duplicates (first wins,
+    # IDs stable), then guarantee globally unique IDs. Idempotent: the
+    # extract node already merged, so direct callers get the same result.
+    requirements, dropped = deduplicate_requirements(state.get("requirements", []))
+    if dropped:
+        state["warnings"] = state.get("warnings", []) + [
+            f"Deduplicated {len(dropped)} repeated requirement(s): {', '.join(dropped[:10])}"
+            + ("" if len(dropped) <= 10 else f" (+{len(dropped) - 10} more)")
+        ]
+    requirements = link_exemptions(ensure_unique_ids(requirements))
+    state["requirements"] = requirements
+
+    failed_chunks = state.get("failed_chunks", []) or []
     if state.get("analysis_status") != "FAILED":
-        state["analysis_status"] = "SUCCESS" if not state.get("validation_errors") else "PARTIAL"
+        if not requirements and not state.get("metadata"):
+            # Executed but produced nothing usable: a failure, not "partial".
+            state["analysis_status"] = "FAILED"
+            state["error_details"] = (
+                f"Analysis produced no requirements or metadata "
+                f"({len(failed_chunks)} failed chunk(s))."
+            )
+        elif state.get("validation_errors") or failed_chunks:
+            state["analysis_status"] = "PARTIAL"
+        else:
+            state["analysis_status"] = "SUCCESS"
 
     unreadable = sum(1 for p in state.get("parsed_pages", []) if p["extraction_status"] == "NO_TEXT")
 
@@ -330,6 +509,19 @@ def assemble_final_result_node(state: TenderAnalystState) -> TenderAnalystState:
         "unreadable_pages": unreadable,
         "requirements_needing_review": sum(1 for r in state.get("requirements", []) if r.get("needs_review")),
         "warnings": state.get("warnings", []) + state.get("validation_errors", []),
+        "failed_chunks": failed_chunks,
+        # Execution success (analysis_status) is separate from completeness:
+        # what data is actually missing vs merely flagged for review.
+        "completeness": {
+            "missing_metadata_fields": sorted(
+                k for k, v in (state.get("metadata", {}) or {}).items()
+                if v is None and k != "other_metadata"
+            ),
+            "failed_chunk_count": len(failed_chunks),
+            "requirements_flagged": sum(
+                1 for r in state.get("requirements", []) if r.get("needs_review")
+            ),
+        },
         "analysis_version": "1.0"
     }
 

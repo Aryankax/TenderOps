@@ -27,6 +27,7 @@ class TenderAnalystService:
             "requirements": [],
             "issues": [],
             "validation_errors": [],
+            "failed_chunks": [],
             "retry_count": 0,
             "analysis_status": "PENDING",
             "final_result": None,

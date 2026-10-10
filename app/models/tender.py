@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field
 from enum import Enum
-from typing import List, Optional, Any
+from typing import Dict, List, Optional, Any
 
 class RequirementCategory(str, Enum):
     FINANCIAL_ELIGIBILITY = "FINANCIAL_ELIGIBILITY"
@@ -15,9 +15,25 @@ class RequirementCategory(str, Enum):
     CONTRACTUAL = "CONTRACTUAL"
     OTHER = "OTHER"
 
+class SemanticType(str, Enum):
+    """What kind of clause a requirement is — distinct from its topic category.
+
+    Used to stop treating every extracted clause as an unconditional bidder
+    obligation: prohibitions keep their negation, buyer-discretion clauses are
+    not bidder duties, and informational references carry no obligation.
+    """
+    BIDDER_OBLIGATION = "BIDDER_OBLIGATION"
+    ELIGIBILITY_CONDITION = "ELIGIBILITY_CONDITION"
+    EXEMPTION = "EXEMPTION"
+    BUYER_DISCRETION = "BUYER_DISCRETION"
+    PROHIBITION = "PROHIBITION"
+    RESTRICTION = "RESTRICTION"
+    CONTRACTUAL_TERM = "CONTRACTUAL_TERM"
+    INFORMATIONAL = "INFORMATIONAL"
+
 class RequirementThreshold(BaseModel):
-    operator: str
-    value: float
+    operator: str  # one of ">=", "<=", "=", "~" (approx), "unknown"
+    value: Optional[float] = None  # None when no numeric value can be established — never 0.0 as a guess
     unit: str
     original_value: str
 
@@ -30,6 +46,7 @@ class SourceReference(BaseModel):
 class TenderRequirement(BaseModel):
     requirement_id: str
     category: RequirementCategory
+    semantic_type: Optional[SemanticType] = None
     title: str
     original_text: str
     normalized_description: Optional[str] = None
@@ -78,4 +95,6 @@ class TenderAnalysisResult(BaseModel):
     unreadable_pages: int
     requirements_needing_review: int
     warnings: List[str] = Field(default_factory=list)
+    failed_chunks: List[int] = Field(default_factory=list)
+    completeness: Dict[str, Any] = Field(default_factory=dict)
     analysis_version: str = "1.0"

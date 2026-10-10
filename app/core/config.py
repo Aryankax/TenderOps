@@ -4,6 +4,11 @@ from typing import Optional
 class Settings(BaseSettings):
     GROQ_API_KEY: Optional[str] = None
     GROQ_MODEL: str = "openai/gpt-oss-120b"
+    # Primary provider: LiteLLM OpenAI-compatible gateway (Groq is fallback).
+    LITELLM_API_KEY: Optional[str] = None
+    LITELLM_BASE_URL: str = "https://litellm.vision.aivar.app/v1"
+    # Gateway model id (e.g. claude-haiku, claude-sonnet-4.6, nova-pro).
+    LITELLM_MODEL: str = "claude-haiku"
     # Groq on_demand tier caps tokens-per-minute (TPM). max_tokens counts
     # against TPM, so this must stay well below the tier limit (8000 TPM
     # raised 413 "Request too large" when we used 8192). Sized for

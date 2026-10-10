@@ -144,7 +144,11 @@ def test_lenient_schema_absorbs_alias_drift_payloads():
     assert reqs[1].required_evidence == ["Bidder Turnover Certificate"]
     assert reqs[2].mandatory is None
     assert reqs[2].needs_review is True
-    assert reqs[2].threshold.value == 115637000.0
+    # MSE relaxation is relief from a base requirement, not an obligation:
+    # numeric framing withdrawn (value None), wording preserved verbatim.
+    assert reqs[2].threshold.value is None
+    assert reqs[2].threshold.original_value == "115637000 INR (partial relaxation)"
+    assert "Partial exemption scope" in (reqs[2].review_reason or "")
 
 
 def test_structured_invoke_falls_back_to_raw_json(monkeypatch):
@@ -241,7 +245,9 @@ def test_flat_schema_primary_path():
     assert reqs[0].source_references[0].page_number == 1
     assert reqs[0].source_references[0].section_heading == "Bid Details"
     assert "24-10-2026" in (reqs[0].applicability_condition or "")
-    assert reqs[1].threshold.value == 115637000.0
+    # MSE relaxation reframed as relief (value withdrawn, wording kept).
+    assert reqs[1].threshold.value is None
+    assert reqs[1].threshold.operator == "unknown"
     assert reqs[1].mandatory is None
     assert reqs[1].needs_review is True
 
@@ -369,8 +375,11 @@ def test_rendered_prompt_contains_valid_example_json():
     example = json.loads(rendered[start : end + 1])
     assert example["requirement_id"] == "R1"
     assert example["mandatory"] is True
+    assert example["semantic_type"] == "ELIGIBILITY_CONDITION"
     assert set(example) == {
-        "requirement_id", "category", "title", "original_text",
+        "requirement_id", "category", "semantic_type", "title", "original_text",
         "mandatory", "condition", "threshold_text", "evidence",
         "deadline", "page", "section",
     }
+
+

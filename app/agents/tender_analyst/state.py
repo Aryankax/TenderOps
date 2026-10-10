@@ -10,6 +10,7 @@ class TenderAnalystState(TypedDict):
     requirements: List[Dict[str, Any]]
     issues: List[Dict[str, Any]]
     validation_errors: List[str]
+    failed_chunks: List[int]
     retry_count: int
     analysis_status: str
     final_result: Optional[Dict[str, Any]]
