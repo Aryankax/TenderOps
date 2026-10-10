@@ -6,8 +6,11 @@ class Settings(BaseSettings):
     GROQ_MODEL: str = "openai/gpt-oss-120b"
     # Groq on_demand tier caps tokens-per-minute (TPM). max_tokens counts
     # against TPM, so this must stay well below the tier limit (8000 TPM
-    # raised 413 "Request too large" when we used 8192).
-    GROQ_MAX_TOKENS: int = 3000
+    # raised 413 "Request too large" when we used 8192). Sized for
+    # reasoning-token burn (reasoning_effort=medium consumes completion
+    # budget before the answer): too small a budget truncates the JSON and
+    # surfaces as json_validate_failed with empty failed_generation.
+    GROQ_MAX_TOKENS: int = 4000
     # Reasoning effort for gpt-oss models ("low", "medium", "high").
     GROQ_REASONING_EFFORT: str = "medium"
     # Per-chunk input cap so prompt + completion stay inside the TPM budget.

@@ -23,6 +23,15 @@ from pydantic import BaseModel, ConfigDict, Field
 from pydantic.aliases import AliasChoices
 
 from app.models.tender import RequirementCategory, TenderMetadata, TenderRequirement
+from app.core.sanitize import sanitize_text
+
+
+def _clean(value: Any, limit: int | None = None) -> Any:
+    """Sanitize output strings (control chars must never reach the API)."""
+    if not isinstance(value, str):
+        return value
+    value = sanitize_text(value)
+    return value[:limit] if limit is not None else value
 
 
 class LenientBase(BaseModel):
@@ -327,11 +336,11 @@ def parse_threshold(value: Any) -> Optional[Dict[str, Any]]:
         return {
             "operator": value.get("operator") or "=",
             "value": _coerce_float(raw_val),
-            "unit": str(unit or ""),
-            "original_value": str(original or ""),
+            "unit": _clean(str(unit or ""), 100),
+            "original_value": _clean(str(original or ""), 500),
         }
     # Plain string / number, e.g. "180 days", "115637000 INR (partial relaxation)"
-    text = str(value)
+    text = _clean(str(value), 500)
     m = _NUMBER_RE.search(text.replace(",", ""))
     num = float(m.group(0)) if m else 0.0
     unit = text[m.end():].strip(" ()") if m else ""
@@ -357,8 +366,8 @@ def _normalize_source_ref(
     return {
         "document_name": str(doc or document_name),
         "page_number": _coerce_int(page, default_page),
-        "section_heading": str(section) if section else None,
-        "source_excerpt": str(excerpt or fallback_excerpt or "")[:2000],
+        "section_heading": _clean(str(section), 500) if section else None,
+        "source_excerpt": _clean(str(excerpt or fallback_excerpt or ""), 2000),
     }
 
 
@@ -379,7 +388,14 @@ def normalize_metadata(data: Any) -> Dict[str, Any]:
     clean = {k: v for k, v in raw.items() if k in allowed}
     for k, v in clean.items():
         if v is not None and not isinstance(v, str) and k != "other_metadata":
-            clean[k] = str(v)
+            clean[k] = _clean(str(v), 2000)
+        elif isinstance(v, str):
+            clean[k] = _clean(v, 2000)
+    if isinstance(clean.get("other_metadata"), dict):
+        clean["other_metadata"] = {
+            _clean(str(k), 200): _clean(str(v), 2000) if isinstance(v, str) else v
+            for k, v in clean["other_metadata"].items()
+        }
     if not isinstance(clean.get("other_metadata"), dict):
         # Keep stray keys instead of dropping them.
         extras = {k: v for k, v in raw.items() if k not in allowed}
@@ -531,20 +547,20 @@ def normalize_requirement(
         confidence = None
 
     strict = {
-        "requirement_id": str(req_id),
+        "requirement_id": _clean(str(req_id), 100),
         "category": parse_category(_pick("category")),
-        "title": str(title)[:500],
-        "original_text": str(original)[:4000] or str(title)[:4000],
-        "normalized_description": _pick("normalized_description"),
+        "title": _clean(str(title), 500),
+        "original_text": _clean(str(original), 4000) or _clean(str(title), 4000),
+        "normalized_description": _clean(_pick("normalized_description"), 2000),
         "mandatory": mandatory,
-        "applicability_condition": applicability,
+        "applicability_condition": _clean(applicability, 2000),
         "threshold": threshold,
-        "required_evidence": evidence,
+        "required_evidence": [_clean(e, 1000) for e in evidence],
         "source_references": refs,
-        "depends_on": depends,
+        "depends_on": [_clean(d, 200) for d in depends],
         "confidence": confidence,
         "needs_review": needs_review,
-        "review_reason": review_reason,
+        "review_reason": _clean(review_reason, 1000),
     }
     return TenderRequirement(**strict).model_dump()
 

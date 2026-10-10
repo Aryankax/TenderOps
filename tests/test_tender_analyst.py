@@ -290,3 +290,87 @@ def test_staged_fallback_uses_second_schema(monkeypatch):
     )
     assert isinstance(out, LLMRequirementList)
     assert out.requirements[0].requirement_id == "R9"
+
+
+def test_sanitize_strips_control_chars():
+    from app.core.sanitize import sanitize_text
+
+    dirty = "prefix \x01 mid \x13 end\nLine2\x7f"
+    assert sanitize_text(dirty) == "prefix  mid  end\nLine2"
+    assert sanitize_text("") == ""
+    assert sanitize_text(None) == ""
+
+
+def test_extract_json_object_repairs_production_glitches():
+    """Exact glitch shapes from the chunk-5 failed_generation payloads."""
+    from app.agents.tender_analyst.nodes import _extract_json_object
+
+    # Control bytes copied from PDF text + doubled comma (attempt 2).
+    d = _extract_json_object(
+        '{"requirements": [{"requirement_id": "R7", '
+        '"original_text": "abc \x01 def",,\"mandatory": null}]}'
+    )
+    assert d["requirements"][0]["requirement_id"] == "R7"
+    # Doubled colon '"evidence"::null' (fallback attempt 1).
+    d = _extract_json_object(
+        '{"requirements": [{"requirement_id": "R6", "title": "T", '
+        '"original_text": "O", "evidence"::null}]}'
+    )
+    assert d["requirements"][0]["requirement_id"] == "R6"
+    # Trailing commas repaired; URLs and prose commas untouched.
+    assert _extract_json_object('{"a": 1, "b": [1, 2,],}') == {"a": 1, "b": [1, 2]}
+    d = _extract_json_object(
+        '{"requirements": [{"requirement_id": "R1", '
+        '"title": "See http://example.com/a,b", "original_text": "O"}]}'
+    )
+    assert d["requirements"][0]["title"] == "See http://example.com/a,b"
+
+
+def test_normalized_outputs_contain_no_control_chars():
+    from app.agents.tender_analyst.llm_schemas import normalize_requirement
+
+    n = normalize_requirement(
+        {
+            "requirement_id": "R1",
+            "category": "OTHER",
+            "title": "T\x01",
+            "original_text": "O\x13X",
+            "source_references": [
+                {"document_name": "d", "page_number": 1, "source_excerpt": "E\x01"}
+            ],
+        },
+        "d.pdf",
+        1,
+    )
+    assert n["title"] == "T"
+    assert n["original_text"] == "OX"
+    assert n["source_references"][0]["source_excerpt"] == "E"
+
+
+def test_rendered_prompt_contains_valid_example_json():
+    """The few-shot example must render as valid, comma-separated JSON after
+    .format() — the model copies its shape verbatim."""
+    import json
+    from app.agents.tender_analyst.prompts import REQUIREMENTS_EXTRACTION_PROMPT
+
+    rendered = REQUIREMENTS_EXTRACTION_PROMPT.format(
+        document_name="d.pdf", chunk_content="--- Page 1 ---\nSome text"
+    )
+    assert "{{" not in rendered and "}}" not in rendered
+    start = rendered.index('{"requirement_id": "R1"')
+    depth = 0
+    for end, ch in enumerate(rendered[start:], start):
+        if ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0:
+                break
+    example = json.loads(rendered[start : end + 1])
+    assert example["requirement_id"] == "R1"
+    assert example["mandatory"] is True
+    assert set(example) == {
+        "requirement_id", "category", "title", "original_text",
+        "mandatory", "condition", "threshold_text", "evidence",
+        "deadline", "page", "section",
+    }

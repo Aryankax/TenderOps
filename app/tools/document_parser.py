@@ -1,6 +1,7 @@
 import pymupdf as fitz  # PyMuPDF
 from typing import List, Optional, Dict
 from pydantic import BaseModel
+from app.core.sanitize import sanitize_text
 
 class ParsedPage(BaseModel):
     page_number: int  # 1-based
@@ -28,7 +29,10 @@ class DocumentParser:
         
         for i in range(doc.page_count):
             page = doc[i]
-            text = page.get_text("text").strip()
+            # Strip control chars from font-embedding artifacts (\x01, \x13…):
+            # if the LLM copies them into a JSON string, Groq rejects the
+            # whole response with 400 json_validate_failed.
+            text = sanitize_text(page.get_text("text")).strip()
             
             status = "SUCCESS"
             if not text:

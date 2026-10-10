@@ -24,6 +24,8 @@ Determine if it is mandatory, optional, or conditional.
 Identify thresholds, deadlines, or requested evidence.
 Include the page and section supporting the interpretation.
 If contradictory or ambiguous, note it in "condition".
+If the chunk contains garbled or unreadable characters, transcribe only the readable words — never copy strange symbols.
+When a passage is mixed-script, mojibake, or garbled non-English text followed by an English translation, use ONLY the English wording and skip the garbled script entirely.
 Normalize clear expressions (e.g. ₹5 crore -> 50000000 INR) in threshold_text.
 Keep the response SMALL: at most 10 requirements per chunk, omit empty fields (use null).
 

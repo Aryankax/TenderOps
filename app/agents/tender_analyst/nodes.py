@@ -5,6 +5,7 @@ from typing import Any, Type
 from langchain_groq import ChatGroq
 from pydantic import BaseModel
 from app.core.config import settings
+from app.core.sanitize import sanitize_text
 from app.agents.tender_analyst.state import TenderAnalystState
 from app.agents.tender_analyst.prompts import METADATA_EXTRACTION_PROMPT, REQUIREMENTS_EXTRACTION_PROMPT
 from app.agents.tender_analyst.llm_schemas import (
@@ -104,15 +105,28 @@ def _backoff_sleep(attempt: int, operation: str) -> None:
 
 
 def _extract_json_object(text: str) -> Any:
-    """Best-effort extraction of the first {...} JSON object from raw LLM text."""
+    """Best-effort extraction of the first {...} JSON object from raw LLM text.
+
+    Repairs the exact glitches seen in production failed_generation payloads:
+    raw control bytes copied from PDF text, doubled commas (",,"), doubled
+    colons ('"key"::'), and trailing commas. All repairs target sequences
+    that are never valid JSON, so a failed repair just raises as before.
+    """
     if not text:
         raise ValueError("Empty completion, nothing to parse.")
-    cleaned = re.sub(r"```(?:json)?", "", text).strip()
+    cleaned = sanitize_text(re.sub(r"```(?:json)?", "", text)).strip()
     start = cleaned.find("{")
     end = cleaned.rfind("}")
     if start == -1 or end == -1 or end <= start:
         raise ValueError(f"No JSON object found in completion: {text[:200]!r}")
-    return json.loads(cleaned[start : end + 1])
+    candidate = cleaned[start : end + 1]
+    try:
+        return json.loads(candidate)
+    except json.JSONDecodeError:
+        repaired = re.sub(r",\s*,", ",", candidate)  # "a",,  ->  "a",
+        repaired = re.sub(r'("[^"\n]*")\s*::', r"\1:", repaired)  # "k"::v  ->  "k":v
+        repaired = re.sub(r",\s*([}\]])", r"\1", repaired)  # trailing commas
+        return json.loads(repaired)
 
 
 # Appended to the prompt on retry attempts: the most common json_mode failure
@@ -228,7 +242,7 @@ def extract_metadata_node(state: TenderAnalystState) -> TenderAnalystState:
         return state
 
     content = "\n".join([p["text"] for p in state["parsed_pages"][:3]])  # First 3 pages for metadata usually
-    content = _truncate(content, settings.TENDER_ANALYST_MAX_CHUNK_CHARS)
+    content = _truncate(sanitize_text(content), settings.TENDER_ANALYST_MAX_CHUNK_CHARS)
     prompt = METADATA_EXTRACTION_PROMPT.format(content=content)
 
     try:
@@ -263,8 +277,9 @@ def extract_requirements_by_chunk_node(state: TenderAnalystState) -> TenderAnaly
         chunk_text = "\n\n".join([f"--- Page {p['page_number']} ---\n{p['text']}" for p in chunk if p["extraction_status"] == "SUCCESS"])
         if not chunk_text.strip():
             continue
-        # Keep prompt + completion inside the Groq TPM budget (413 otherwise).
-        chunk_text = _truncate(chunk_text, settings.TENDER_ANALYST_MAX_CHUNK_CHARS)
+        # Keep prompt + completion inside the Groq TPM budget (413 otherwise),
+        # and strip control chars so the model can't copy them into JSON.
+        chunk_text = _truncate(sanitize_text(chunk_text), settings.TENDER_ANALYST_MAX_CHUNK_CHARS)
 
         default_page = chunk[0].get("page_number", 1) if chunk else 1
         prompt = REQUIREMENTS_EXTRACTION_PROMPT.format(
