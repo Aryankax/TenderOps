@@ -3,6 +3,7 @@ import neatlogs
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from app.api.tender_analysis import router as tender_analysis_router
+from app.api.pipeline import router as pipeline_router
 
 from app.core.config import settings
 
@@ -20,6 +21,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="TenderOps API", lifespan=lifespan)
 
 app.include_router(tender_analysis_router)
+app.include_router(pipeline_router)
 
 @app.get("/health")
 def health_check():

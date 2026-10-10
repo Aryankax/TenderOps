@@ -24,6 +24,11 @@ class Settings(BaseSettings):
     MAX_UPLOAD_SIZE_MB: int = 10
     TENDER_ANALYST_MAX_RETRIES: int = 2
     TENDER_ANALYST_CHUNK_SIZE: int = 1
+    # Evidence agent (P2): local Chroma index, no API budget on retrieval.
+    EVIDENCE_CHROMA_DIR: str = "./data/evidence_chroma"
+    EVIDENCE_TOP_K: int = 3
+    EVIDENCE_MIN_SCORE: float = 0.15
+    EVIDENCE_MAP_BATCH_SIZE: int = 6
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
