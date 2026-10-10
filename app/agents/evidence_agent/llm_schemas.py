@@ -7,7 +7,7 @@ strict models in app/models/evidence.py.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic.aliases import AliasChoices
@@ -20,36 +20,36 @@ class LenientBase(BaseModel):
 
 
 class LLMRequirementMapping(LenientBase):
-    requirement_id: Optional[Any] = Field(
+    requirement_id: Any | None = Field(
         default=None,
         validation_alias=AliasChoices("requirement_id", "requirementId", "id"),
     )
-    status: Optional[Any] = None
-    confidence: Optional[Any] = None
-    computed_value: Optional[Any] = Field(
+    status: Any | None = None
+    confidence: Any | None = None
+    computed_value: Any | None = Field(
         default=None,
         validation_alias=AliasChoices("computed_value", "computedValue", "value"),
     )
-    computed_unit: Optional[Any] = Field(
+    computed_unit: Any | None = Field(
         default=None,
         validation_alias=AliasChoices("computed_unit", "computedUnit", "unit"),
     )
-    supporting_doc: Optional[Any] = Field(
+    supporting_doc: Any | None = Field(
         default=None,
         validation_alias=AliasChoices("supporting_doc", "supportingDoc", "document"),
     )
-    supporting_page: Optional[Any] = None
-    notes: Optional[Any] = None
+    supporting_page: Any | None = None
+    notes: Any | None = None
 
 
 class LLMMappingList(LenientBase):
-    mappings: List[LLMRequirementMapping] = Field(default_factory=list)
+    mappings: list[LLMRequirementMapping] = Field(default_factory=list)
 
 
 _VALID_STATUSES = {"satisfied", "partial", "missing", "needs_review"}
 
 
-def _coerce_float(value: Any) -> Optional[float]:
+def _coerce_float(value: Any) -> float | None:
     try:
         if value is None or isinstance(value, bool):
             return None
@@ -68,8 +68,8 @@ def _coerce_int(value: Any, default: int = 1) -> int:
 
 
 def normalize_mapping(
-    item: Any, requirement_id: str, hits: List[Dict[str, Any]]
-) -> Dict[str, Any]:
+    item: Any, requirement_id: str, hits: list[dict[str, Any]]
+) -> dict[str, Any]:
     """Lenient mapping -> strict RequirementEvidence dict.
 
     Falls back to deterministic derivation from retrieval hits when the

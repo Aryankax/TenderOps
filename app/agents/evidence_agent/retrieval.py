@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import os
 import re
-from typing import Any, Dict, List
+from typing import Any
 
 import chromadb
 
@@ -22,19 +22,62 @@ from app.core.config import settings
 from app.services.observability import observability
 from app.tools.document_parser import DocumentParser
 
-_OVERLAP_STOPWORDS = frozenset({
-    "the", "a", "an", "of", "for", "and", "to", "in", "on", "by",
-    "bidder", "bid", "bids", "requirement", "requirements", "details",
-    "detail", "clause", "service", "services", "tender", "gem",
-    "with", "from", "that", "this", "are", "was", "has", "have",
-    "will", "shall", "must", "should", "year", "years", "per",
-    "inr", "rs", "rupee", "rupees", "lakh", "lakhs", "lac", "crore", "crores",
-})
+_OVERLAP_STOPWORDS = frozenset(
+    {
+        "the",
+        "a",
+        "an",
+        "of",
+        "for",
+        "and",
+        "to",
+        "in",
+        "on",
+        "by",
+        "bidder",
+        "bid",
+        "bids",
+        "requirement",
+        "requirements",
+        "details",
+        "detail",
+        "clause",
+        "service",
+        "services",
+        "tender",
+        "gem",
+        "with",
+        "from",
+        "that",
+        "this",
+        "are",
+        "was",
+        "has",
+        "have",
+        "will",
+        "shall",
+        "must",
+        "should",
+        "year",
+        "years",
+        "per",
+        "inr",
+        "rs",
+        "rupee",
+        "rupees",
+        "lakh",
+        "lakhs",
+        "lac",
+        "crore",
+        "crores",
+    }
+)
 
 
 def _content_tokens(text: str) -> set:
     return {
-        t for t in re.findall(r"[a-z0-9]+", text.lower())
+        t
+        for t in re.findall(r"[a-z0-9]+", text.lower())
         if t not in _OVERLAP_STOPWORDS and len(t) > 2
     }
 
@@ -66,8 +109,8 @@ def _get_collection(company_profile_id: str):
 
 
 def index_company_docs(
-    docs: List[Dict[str, str]], company_profile_id: str = "sample"
-) -> Dict[str, Any]:
+    docs: list[dict[str, str]], company_profile_id: str = "sample"
+) -> dict[str, Any]:
     """Parse PDFs and (re)build the company evidence collection.
 
     docs: [{"path": ..., "name": ...}]. Returns {"chunks": n, "documents": m}.
@@ -77,8 +120,8 @@ def index_company_docs(
         existing = collection.get(limit=1)
         if existing and existing.get("ids"):
             collection.delete(ids=collection.get()["ids"])
-    except Exception:
-        pass
+    except Exception as e:
+        observability.log_event("evidence_index_clear_skipped", reason=str(e)[:200])
 
     ids, documents, metadatas = [], [], []
     doc_count = 0
@@ -117,14 +160,14 @@ def query_evidence(
     query_text: str,
     company_profile_id: str = "sample",
     top_k: int | None = None,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Return [{document_name, page_number, excerpt, score}] above threshold."""
     collection = _get_collection(company_profile_id)
     res = collection.query(
         query_texts=[query_text[:2000]],
         n_results=top_k or settings.EVIDENCE_TOP_K,
     )
-    hits: List[Dict[str, Any]] = []
+    hits: list[dict[str, Any]] = []
     docs = (res.get("documents") or [[]])[0]
     metas = (res.get("metadatas") or [[]])[0]
     dists = (res.get("distances") or [[]])[0]
@@ -151,8 +194,8 @@ def reset_index(company_profile_id: str = "sample") -> None:
     client = chromadb.PersistentClient(path=settings.EVIDENCE_CHROMA_DIR)
     try:
         client.delete_collection(name=f"company_evidence_{company_profile_id}")
-    except Exception:
-        pass
+    except Exception as e:
+        observability.log_event("evidence_index_reset_skipped", reason=str(e)[:200])
     # Best effort: remove empty persist dir.
     try:
         if os.path.isdir(settings.EVIDENCE_CHROMA_DIR) and not os.listdir(

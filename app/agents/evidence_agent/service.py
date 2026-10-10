@@ -1,5 +1,4 @@
 import os
-from typing import Dict, List
 
 from app.agents.evidence_agent.graph import evidence_agent_graph
 from app.agents.evidence_agent.retrieval import index_company_docs
@@ -12,13 +11,11 @@ class EvidenceAgentService:
     @staticmethod
     def build_index(
         docs_dir: str, company_profile_id: str = "sample"
-    ) -> Dict[str, int]:
-        docs: List[Dict[str, str]] = []
+    ) -> dict[str, int]:
+        docs: list[dict[str, str]] = []
         for fname in sorted(os.listdir(docs_dir)):
             if fname.lower().endswith(".pdf"):
-                docs.append(
-                    {"path": os.path.join(docs_dir, fname), "name": fname}
-                )
+                docs.append({"path": os.path.join(docs_dir, fname), "name": fname})
         return index_company_docs(docs, company_profile_id)
 
     @staticmethod
@@ -43,6 +40,7 @@ class EvidenceAgentService:
         }
         try:
             import neatlogs
+
             handler = neatlogs.langchain_handler()
             final_state = evidence_agent_graph.invoke(
                 initial_state, config={"callbacks": [handler]}
@@ -52,4 +50,4 @@ class EvidenceAgentService:
             observability.log_error(
                 "evidence_mapping_failed", e, tender_id=tender_result.tender_id
             )
-            raise RuntimeError(f"Evidence mapping failed: {str(e)}")
+            raise RuntimeError(f"Evidence mapping failed: {e!s}")

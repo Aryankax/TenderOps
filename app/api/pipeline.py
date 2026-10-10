@@ -1,7 +1,6 @@
 import os
 import shutil
 import tempfile
-from typing import List
 
 import neatlogs
 from fastapi import APIRouter, File, HTTPException, UploadFile
@@ -35,7 +34,7 @@ async def run_pipeline(file: UploadFile = File(...)):
             raise HTTPException(
                 status_code=400,
                 detail=f"File exceeds maximum allowed size of "
-                       f"{settings.MAX_UPLOAD_SIZE_MB}MB.",
+                f"{settings.MAX_UPLOAD_SIZE_MB}MB.",
             )
         try:
             analysis = TenderAnalystService.analyze_tender(
@@ -65,7 +64,7 @@ async def run_pipeline(file: UploadFile = File(...)):
 
 
 @router.post("/evidence-index")
-async def rebuild_evidence_index(files: List[UploadFile] = File(...)):
+async def rebuild_evidence_index(files: list[UploadFile] = File(...)):
     """Replace the sample company evidence index with uploaded PDFs."""
     saved = []
     try:
@@ -77,6 +76,7 @@ async def rebuild_evidence_index(files: List[UploadFile] = File(...)):
             path = _save_upload(upload)
             saved.append({"path": path, "name": upload.filename})
         from app.agents.evidence_agent.retrieval import index_company_docs
+
         stats = index_company_docs(saved, _DEFAULT_PROFILE)
         return {"company_profile_id": _DEFAULT_PROFILE, **stats}
     finally:

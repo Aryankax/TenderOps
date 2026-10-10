@@ -1,10 +1,11 @@
-from langgraph.graph import StateGraph, END
-from app.agents.evidence_agent.state import EvidenceAgentState
+from langgraph.graph import END, StateGraph
+
 from app.agents.evidence_agent.nodes import (
-    retrieve_evidence_node,
-    map_evidence_node,
     assemble_evidence_node,
+    map_evidence_node,
+    retrieve_evidence_node,
 )
+from app.agents.evidence_agent.state import EvidenceAgentState
 
 
 def build_graph():

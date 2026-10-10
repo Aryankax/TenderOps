@@ -1,11 +1,11 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from typing import Optional
+
 
 class Settings(BaseSettings):
-    GROQ_API_KEY: Optional[str] = None
+    GROQ_API_KEY: str | None = None
     GROQ_MODEL: str = "openai/gpt-oss-120b"
     # Primary provider: LiteLLM OpenAI-compatible gateway (Groq is fallback).
-    LITELLM_API_KEY: Optional[str] = None
+    LITELLM_API_KEY: str | None = None
     LITELLM_BASE_URL: str = "https://litellm.vision.aivar.app/v1"
     # Gateway model id (e.g. claude-haiku, claude-sonnet-4.6, nova-pro).
     LITELLM_MODEL: str = "claude-haiku"
@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     GROQ_REASONING_EFFORT: str = "medium"
     # Per-chunk input cap so prompt + completion stay inside the TPM budget.
     TENDER_ANALYST_MAX_CHUNK_CHARS: int = 6000
-    NEATLOGS_API_KEY: Optional[str] = None
+    NEATLOGS_API_KEY: str | None = None
     MAX_UPLOAD_SIZE_MB: int = 10
     TENDER_ANALYST_MAX_RETRIES: int = 2
     TENDER_ANALYST_CHUNK_SIZE: int = 1
@@ -31,5 +31,6 @@ class Settings(BaseSettings):
     EVIDENCE_MAP_BATCH_SIZE: int = 6
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+
 
 settings = Settings()
