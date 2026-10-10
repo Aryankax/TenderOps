@@ -1,0 +1,23 @@
+[project]
+name = "backend"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12.1"
+dependencies = [
+    "fastapi>=0.143.0",
+    "langchain-openai>=1.7.0",
+    "langgraph>=1.2.14",
+    "neatlogs>=1.4.26",
+    "pydantic-settings>=2.15.0",
+    "pymupdf>=1.28.2",
+    "python-docx>=1.2.0",
+    "python-multipart>=0.0.32",
+    "uvicorn[standard]>=0.54.0",
+]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "pytest>=9.1.1",
+]
