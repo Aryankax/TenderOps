@@ -16,9 +16,9 @@ import neatlogs
 @router.post("", response_model=TenderAnalysisResult)
 @neatlogs.span(kind="WORKFLOW")
 async def analyze_tender(file: UploadFile = File(...)):
-    document_name = file.filename or "upload.pdf"
-    if not document_name.lower().endswith(".pdf"):
+    if not (file.filename or "").lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Only PDF files are supported.")
+    document_name = file.filename or "upload.pdf"
 
     try:
         # Save uploaded file to temp directory

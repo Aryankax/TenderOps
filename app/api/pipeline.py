@@ -26,9 +26,9 @@ def _save_upload(upload: UploadFile, suffix: str = ".pdf") -> str:
 @neatlogs.span(kind="WORKFLOW")
 async def run_pipeline(file: UploadFile = File(...)):
     """P1+P2 wired: analyze tender PDF, then map company evidence."""
-    document_name = file.filename or "upload.pdf"
-    if not document_name.lower().endswith(".pdf"):
+    if not (file.filename or "").lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Only PDF files are supported.")
+    document_name = file.filename or "upload.pdf"
     temp_path = _save_upload(file)
     try:
         if os.path.getsize(temp_path) > settings.MAX_UPLOAD_SIZE_MB * 1024 * 1024:
