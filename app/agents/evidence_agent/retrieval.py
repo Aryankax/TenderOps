@@ -74,7 +74,7 @@ _OVERLAP_STOPWORDS = frozenset(
 )
 
 
-def _content_tokens(text: str) -> set:
+def _content_tokens(text: str) -> set[str]:
     return {
         t
         for t in re.findall(r"[a-z0-9]+", text.lower())
@@ -156,6 +156,18 @@ def index_company_docs(
     return {"chunks": len(ids), "documents": doc_count}
 
 
+def _coerce_page(value: Any) -> int:
+    """Chroma metadata values are untyped — coerce page numbers safely."""
+    if isinstance(value, bool):
+        return 1
+    if isinstance(value, (int, float)):
+        return int(value)
+    try:
+        return int(str(value))
+    except (ValueError, TypeError):
+        return 1
+
+
 def query_evidence(
     query_text: str,
     company_profile_id: str = "sample",
@@ -180,8 +192,8 @@ def query_evidence(
             continue
         hits.append(
             {
-                "document_name": (meta or {}).get("document_name", "unknown"),
-                "page_number": int((meta or {}).get("page_number", 1)),
+                "document_name": str((meta or {}).get("document_name") or "unknown"),
+                "page_number": _coerce_page((meta or {}).get("page_number")),
                 "excerpt": excerpt,
                 "score": round(score, 3),
                 "supports": "supports",

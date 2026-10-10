@@ -93,7 +93,7 @@ def normalize_mapping(
         confidence = 0.5 if hits else 0.0
     confidence = min(1.0, max(0.0, confidence))
 
-    strict = {
+    strict: dict[str, Any] = {
         "requirement_id": requirement_id,
         "status": status,
         "confidence": confidence,

@@ -16,15 +16,18 @@ strict TenderMetadata / TenderRequirement dicts.
 
 from __future__ import annotations
 
+import logging
 import re
-from typing import Any, Dict, List, Optional, Tuple
+from enum import Enum
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic.aliases import AliasChoices
-from enum import Enum
 
-from app.models.tender import RequirementCategory, TenderMetadata, TenderRequirement
 from app.core.sanitize import sanitize_text
+from app.models.tender import RequirementCategory, TenderMetadata, TenderRequirement
+
+logger = logging.getLogger(__name__)
 
 
 def _clean(value: Any, limit: int | None = None) -> Any:
@@ -40,78 +43,78 @@ class LenientBase(BaseModel):
 
 
 class LLMThreshold(LenientBase):
-    operator: Optional[str] = None
-    value: Optional[Any] = None
-    unit: Optional[str] = None
-    original_value: Optional[str] = Field(
+    operator: str | None = None
+    value: Any | None = None
+    unit: str | None = None
+    original_value: str | None = Field(
         default=None,
         validation_alias=AliasChoices("original_value", "originalValue"),
     )
     # Observed variant: {"value": "115637000", "currency": "INR"}
-    currency: Optional[str] = None
+    currency: str | None = None
 
 
 class LLMSourceReference(LenientBase):
-    document_name: Optional[str] = Field(
+    document_name: str | None = Field(
         default=None,
         validation_alias=AliasChoices("document_name", "documentName"),
     )
-    page_number: Optional[Any] = Field(
+    page_number: Any | None = Field(
         default=None,
         validation_alias=AliasChoices("page_number", "pageNumber", "page"),
     )
-    section_heading: Optional[str] = Field(
+    section_heading: str | None = Field(
         default=None,
         validation_alias=AliasChoices("section_heading", "sectionHeading", "section"),
     )
-    source_excerpt: Optional[str] = Field(
+    source_excerpt: str | None = Field(
         default=None,
         validation_alias=AliasChoices("source_excerpt", "sourceExcerpt", "excerpt"),
     )
 
 
 class LLMRequirement(LenientBase):
-    requirement_id: Optional[str] = Field(
+    requirement_id: str | None = Field(
         default=None,
         validation_alias=AliasChoices("requirement_id", "requirementId", "id"),
     )
-    category: Optional[str] = None
-    semantic_type: Optional[Any] = Field(
+    category: str | None = None
+    semantic_type: Any | None = Field(
         default=None,
         validation_alias=AliasChoices("semantic_type", "semanticType"),
     )
-    title: Optional[str] = Field(
+    title: str | None = Field(
         default=None, validation_alias=AliasChoices("title", "name")
     )
     # Model often puts the human-readable text in "description".
-    description: Optional[str] = None
-    original_text: Optional[str] = Field(
+    description: str | None = None
+    original_text: str | None = Field(
         default=None,
         validation_alias=AliasChoices("original_text", "originalText"),
     )
-    normalized_description: Optional[str] = Field(
+    normalized_description: str | None = Field(
         default=None,
         validation_alias=AliasChoices(
             "normalized_description", "normalizedDescription"
         ),
     )
-    mandatory: Optional[Any] = None
-    applicability_condition: Optional[str] = Field(
+    mandatory: Any | None = None
+    applicability_condition: str | None = Field(
         default=None,
         validation_alias=AliasChoices(
             "applicability_condition", "applicabilityCondition", "condition", "note"
         ),
     )
-    threshold: Optional[Any] = None
+    threshold: Any | None = None
     # Observed plural variant: "thresholds": [{...}] or ["180 days"]
-    thresholds: Optional[Any] = None
-    required_evidence: Optional[Any] = Field(
+    thresholds: Any | None = None
+    required_evidence: Any | None = Field(
         default=None,
         validation_alias=AliasChoices(
             "required_evidence", "requiredEvidence", "evidence"
         ),
     )
-    source_references: Optional[Any] = Field(
+    source_references: Any | None = Field(
         default=None,
         validation_alias=AliasChoices(
             "source_references",
@@ -120,28 +123,28 @@ class LLMRequirement(LenientBase):
             "references",
         ),
     )
-    depends_on: Optional[Any] = Field(
+    depends_on: Any | None = Field(
         default=None, validation_alias=AliasChoices("depends_on", "dependsOn")
     )
-    confidence: Optional[Any] = None
-    needs_review: Optional[Any] = Field(
+    confidence: Any | None = None
+    needs_review: Any | None = Field(
         default=None, validation_alias=AliasChoices("needs_review", "needsReview")
     )
-    review_reason: Optional[str] = Field(
+    review_reason: str | None = Field(
         default=None,
         validation_alias=AliasChoices("review_reason", "reviewReason"),
     )
     # Observed flat fallbacks (model puts page/section at requirement level).
-    page: Optional[Any] = None
-    section: Optional[str] = None
+    page: Any | None = None
+    section: str | None = None
     # Observed date/evidence variants.
-    deadlines: Optional[Any] = None
-    deadline: Optional[Any] = None
-    notes: Optional[Any] = None
+    deadlines: Any | None = None
+    deadline: Any | None = None
+    notes: Any | None = None
 
 
 class LLMRequirementList(LenientBase):
-    requirements: List[LLMRequirement] = Field(default_factory=list)
+    requirements: list[LLMRequirement] = Field(default_factory=list)
 
 
 class LLMSimpleRequirement(LenientBase):
@@ -155,25 +158,25 @@ class LLMSimpleRequirement(LenientBase):
     normalize_requirement(). Aliases absorb the model's naming drift.
     """
 
-    requirement_id: Optional[Any] = Field(
+    requirement_id: Any | None = Field(
         default=None,
         validation_alias=AliasChoices("requirement_id", "requirementId", "id"),
     )
-    category: Optional[Any] = None
-    semantic_type: Optional[Any] = Field(
+    category: Any | None = None
+    semantic_type: Any | None = Field(
         default=None,
         validation_alias=AliasChoices("semantic_type", "semanticType"),
     )
-    title: Optional[Any] = Field(
+    title: Any | None = Field(
         default=None, validation_alias=AliasChoices("title", "name")
     )
-    description: Optional[Any] = None
-    original_text: Optional[Any] = Field(
+    description: Any | None = None
+    original_text: Any | None = Field(
         default=None,
         validation_alias=AliasChoices("original_text", "originalText", "text"),
     )
-    mandatory: Optional[Any] = None
-    condition: Optional[Any] = Field(
+    mandatory: Any | None = None
+    condition: Any | None = Field(
         default=None,
         validation_alias=AliasChoices(
             "condition",
@@ -184,48 +187,48 @@ class LLMSimpleRequirement(LenientBase):
     )
     # Raw threshold prose ("115637000 INR", "180 days", "7 years") — parsed
     # in code by parse_threshold(). Accepts dicts/lists too, just in case.
-    threshold_text: Optional[Any] = Field(
+    threshold_text: Any | None = Field(
         default=None,
         validation_alias=AliasChoices(
             "threshold_text", "thresholdText", "threshold", "thresholds", "value"
         ),
     )
-    evidence: Optional[Any] = Field(
+    evidence: Any | None = Field(
         default=None,
         validation_alias=AliasChoices(
             "evidence", "required_evidence", "requiredEvidence"
         ),
     )
-    deadline: Optional[Any] = Field(
+    deadline: Any | None = Field(
         default=None, validation_alias=AliasChoices("deadline", "deadlines")
     )
-    page: Optional[Any] = None
-    section: Optional[Any] = Field(
+    page: Any | None = None
+    section: Any | None = Field(
         default=None,
         validation_alias=AliasChoices("section", "section_heading", "sectionHeading"),
     )
 
 
 class LLMSimpleRequirementList(LenientBase):
-    requirements: List[LLMSimpleRequirement] = Field(default_factory=list)
+    requirements: list[LLMSimpleRequirement] = Field(default_factory=list)
 
 
 class LLMMetadata(LenientBase):
     # All fields are Any: the model returns numbers for amount/date fields
     # (e.g. "emd_amount": 9874275). normalize_metadata() stringifies them.
-    tender_title: Optional[Any] = None
-    tender_reference: Optional[Any] = None
-    issuing_authority: Optional[Any] = None
-    submission_deadline: Optional[Any] = None
-    bid_opening_date: Optional[Any] = None
-    pre_bid_meeting_date: Optional[Any] = None
-    clarification_deadline: Optional[Any] = None
-    emd_amount: Optional[Any] = None
-    tender_fee: Optional[Any] = None
-    currency: Optional[Any] = None
-    contract_duration: Optional[Any] = None
-    delivery_deadline: Optional[Any] = None
-    other_metadata: Dict[str, Any] = Field(default_factory=dict)
+    tender_title: Any | None = None
+    tender_reference: Any | None = None
+    issuing_authority: Any | None = None
+    submission_deadline: Any | None = None
+    bid_opening_date: Any | None = None
+    pre_bid_meeting_date: Any | None = None
+    clarification_deadline: Any | None = None
+    emd_amount: Any | None = None
+    tender_fee: Any | None = None
+    currency: Any | None = None
+    contract_duration: Any | None = None
+    delivery_deadline: Any | None = None
+    other_metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 # ---------------------------------------------------------------------------
@@ -235,26 +238,48 @@ class LLMMetadata(LenientBase):
 _NUMBER_RE = re.compile(r"[-+]?\d[\d,]*\.?\d*")
 
 _CATEGORY_KEYWORDS = {
-    "FINANCIAL_ELIGIBILITY": ("FINANCIAL", "TURNOVER", "EMD", "BID SECURITY", "NET WORTH"),
+    "FINANCIAL_ELIGIBILITY": (
+        "FINANCIAL",
+        "TURNOVER",
+        "EMD",
+        "BID SECURITY",
+        "NET WORTH",
+    ),
     "TECHNICAL_ELIGIBILITY": ("TECHNICAL", "ELIGIBILITY"),
     "EXPERIENCE": ("EXPERIENCE", "PAST PERFORMANCE", "TRACK RECORD"),
-    "LEGAL_AND_STATUTORY": ("LEGAL", "STATUTORY", "COMPLIANCE", "GST", "PAN", "LICENSE"),
+    "LEGAL_AND_STATUTORY": (
+        "LEGAL",
+        "STATUTORY",
+        "COMPLIANCE",
+        "GST",
+        "PAN",
+        "LICENSE",
+    ),
     "MANDATORY_DOCUMENTS": ("DOCUMENT", "CERTIFICATE", "EVIDENCE", "ENCLOSE", "UPLOAD"),
     "TECHNICAL_SPECIFICATIONS": ("SPECIFICATION", "SCOPE OF WORK", "SCOPE"),
     "COMMERCIAL": ("COMMERCIAL", "PRICE", "PAYMENT", "COST"),
     "DEADLINES": ("DEADLINE", "DUE DATE", "VALIDITY", "END DATE", "SUBMISSION DATE"),
     "SUBMISSION_INSTRUCTIONS": ("SUBMIT", "SUBMISSION", "BID EXTENSION", "INSTRUCTION"),
-    "CONTRACTUAL": ("CONTRACT", "WARRANTY", "PENALTY", "LIABILITY", "MSE", "STARTUP", "EXEMPTION", "RELAXATION"),
+    "CONTRACTUAL": (
+        "CONTRACT",
+        "WARRANTY",
+        "PENALTY",
+        "LIABILITY",
+        "MSE",
+        "STARTUP",
+        "EXEMPTION",
+        "RELAXATION",
+    ),
 }
 
 
-def _as_str_list(value: Any) -> List[str]:
+def _as_str_list(value: Any) -> list[str]:
     if value is None:
         return []
     if isinstance(value, str):
         return [value]
     if isinstance(value, (list, tuple)):
-        out: List[str] = []
+        out: list[str] = []
         for item in value:
             if item is None:
                 continue
@@ -262,7 +287,12 @@ def _as_str_list(value: Any) -> List[str]:
                 out.append(item)
             elif isinstance(item, dict):
                 # e.g. evidence given as [{"value": ...}] — stringify best effort
-                text = item.get("source_excerpt") or item.get("text") or item.get("value") or str(item)
+                text = (
+                    item.get("source_excerpt")
+                    or item.get("text")
+                    or item.get("value")
+                    or str(item)
+                )
                 out.append(str(text))
             else:
                 out.append(str(item))
@@ -294,7 +324,7 @@ def _coerce_float(value: Any, default: float = 0.0) -> float:
         return default
 
 
-def parse_mandatory(value: Any) -> Tuple[Optional[bool], Optional[str]]:
+def parse_mandatory(value: Any) -> tuple[bool | None, str | None]:
     """Map bool | "mandatory"/"optional"/"conditional" strings -> (bool|None, condition)."""
     if value is None:
         return None, None
@@ -328,7 +358,7 @@ def parse_category(value: Any) -> str:
 
 def parse_threshold(
     value: Any, context: str = ""
-) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
+) -> tuple[dict[str, Any] | None, str | None]:
     """Parse a threshold into (threshold_dict_or_None, review_flag_or_None).
 
     - Infers the comparison operator from comparison words in the threshold
@@ -413,7 +443,7 @@ def parse_threshold(
     )
 
 
-def _extract_number(text: Any) -> Optional[float]:
+def _extract_number(text: Any) -> float | None:
     """First parseable number in text, or None — never a guessed zero."""
     try:
         if isinstance(text, bool):
@@ -426,7 +456,7 @@ def _extract_number(text: Any) -> Optional[float]:
         return None
 
 
-def _apply_unit_scale(number: float, text: Any) -> Tuple[float, str]:
+def _apply_unit_scale(number: float, text: Any) -> tuple[float, str]:
     """Scale lakh/lac/crore into value; return (value, unit).
 
     The verbatim expression always survives in original_value, so expressing
@@ -435,7 +465,7 @@ def _apply_unit_scale(number: float, text: Any) -> Tuple[float, str]:
     s = str(text)
     stripped = s.replace(",", "")
     m = _NUMBER_RE.search(stripped)
-    remainder = stripped[m.end():] if m else s
+    remainder = stripped[m.end() :] if m else s
     low = remainder.lower()
     scale = 1.0
     if re.search(r"\bcrore?s?\b", low):
@@ -445,7 +475,16 @@ def _apply_unit_scale(number: float, text: Any) -> Tuple[float, str]:
         scale = 1e5
         remainder = re.sub(r"(?i)\b(lakh|lac)s?\b", "", remainder)
     unit = _clean_unit(remainder)
-    if scale != 1.0 and unit.lower() in ("", "rs", "rs.", "inr", "\u20b9", "rupees", "re", "inr."):
+    if scale != 1.0 and unit.lower() in (
+        "",
+        "rs",
+        "rs.",
+        "inr",
+        "\u20b9",
+        "rupees",
+        "re",
+        "inr.",
+    ):
         unit = "INR"
     # Round to paise: kills float dust (1156.37*1e5 -> 115636999.99999999).
     return round(number * scale, 2), unit
@@ -468,11 +507,11 @@ def _looks_like_date(text: str) -> bool:
 
 
 def _reframe_exemption_threshold(
-    threshold: Dict[str, Any],
+    threshold: dict[str, Any],
     original: str,
-    condition: Optional[str],
-    prior_flag: Optional[str] = None,
-) -> Tuple[Dict[str, Any], Optional[str]]:
+    condition: str | None,
+    prior_flag: str | None = None,
+) -> tuple[dict[str, Any], str | None]:
     """Reframe an exemption's numeric threshold as scope reference (P2).
 
     A relaxation "up to 115637000 INR" describes the base requirement being
@@ -490,16 +529,16 @@ def _reframe_exemption_threshold(
         "original_value": threshold.get("original_value", ""),
     }
     if re.search(r"\b(partial|partly|proportionate|relaxation|relaxed|rebate)\b", blob):
-        scope_flag: Optional[str] = (
+        scope_flag: str | None = (
             f"Partial exemption scope '{reframed['original_value']}' — verify extent of "
             f"relief; never treated as full exemption"
         )
-    elif re.search(r"\b(full|fully|complete(?:ly)?|entire(?:ly)?|100\s*%|wholly)\b", blob):
+    elif re.search(
+        r"\b(full|fully|complete(?:ly)?|entire(?:ly)?|100\s*%|wholly)\b", blob
+    ):
         scope_flag = None
     else:
-        scope_flag = (
-            f"Exemption scope unclear '{reframed['original_value']}' — verify extent of relief"
-        )
+        scope_flag = f"Exemption scope unclear '{reframed['original_value']}' — verify extent of relief"
     if prior_flag and prior_flag not in (scope_flag or ""):
         combined = f"{scope_flag}; {prior_flag}" if scope_flag else prior_flag
         return reframed, combined
@@ -507,8 +546,8 @@ def _reframe_exemption_threshold(
 
 
 def link_exemptions(
-    requirements: List[Dict[str, Any]],
-) -> List[Dict[str, Any]]:
+    requirements: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
     """Attach each exemption to its base requirement (P2).
 
     Matches on same category + title equivalence with a non-exemption
@@ -530,9 +569,7 @@ def link_exemptions(
                 continue
             if (cand.get("threshold") or {}).get("value") is None:
                 continue
-            if titles_equivalent(
-                str(cand.get("title", "")), str(req.get("title", ""))
-            ):
+            if titles_equivalent(str(cand.get("title", "")), str(req.get("title", ""))):
                 base = cand
                 break
         if base is None:
@@ -564,11 +601,9 @@ def link_exemptions(
             if partial
             else "Exemption scope unclear — verify extent of relief and base requirement"
         )
-        reasons = (req.get("review_reason") or "")
+        reasons = req.get("review_reason") or ""
         if flag not in reasons:
-            req["review_reason"] = _clean(
-                (reasons + "; " + flag).strip("; "), 1000
-            )
+            req["review_reason"] = _clean((reasons + "; " + flag).strip("; "), 1000)
         req["needs_review"] = True
     return requirements
 
@@ -601,11 +636,15 @@ def _infer_operator(text: str, has_number: bool = True) -> str:
 
 def _normalize_source_ref(
     item: Any, document_name: str, default_page: int, fallback_excerpt: str
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     if isinstance(item, dict):
         page = item.get("page_number", item.get("pageNumber", item.get("page")))
-        section = item.get("section_heading", item.get("sectionHeading", item.get("section")))
-        excerpt = item.get("source_excerpt", item.get("sourceExcerpt", item.get("excerpt")))
+        section = item.get(
+            "section_heading", item.get("sectionHeading", item.get("section"))
+        )
+        excerpt = item.get(
+            "source_excerpt", item.get("sourceExcerpt", item.get("excerpt"))
+        )
         doc = item.get("document_name", item.get("documentName")) or document_name
     elif isinstance(item, BaseModel):
         d = item.model_dump()
@@ -628,54 +667,119 @@ def _normalize_source_ref(
 # ---------------------------------------------------------------------------
 
 _PROHIBITION_MARKERS = (
-    "shall not", "must not", "cannot ", "can not ", "not permitted",
-    "not allowed", "prohibit", "debar", "no bidder", "bids will be rejected",
-    "bid will be rejected", "liable for rejection",
+    "shall not",
+    "must not",
+    "cannot ",
+    "can not ",
+    "not permitted",
+    "not allowed",
+    "prohibit",
+    "debar",
+    "no bidder",
+    "bids will be rejected",
+    "bid will be rejected",
+    "liable for rejection",
 )
 _EXEMPTION_MARKERS = (
-    "exempt", "relaxation", "waiver", "waived", "not applicable to",
-    "startup", "mse", "micro and small", "shall be relaxed",
+    "exempt",
+    "relaxation",
+    "waiver",
+    "waived",
+    "not applicable to",
+    "startup",
+    "mse",
+    "micro and small",
+    "shall be relaxed",
 )
 _BUYER_DISCRETION_MARKERS = (
-    "buyer may", "buyer can", "at the discretion", "reserves the right",
-    "reserve the right", "option clause", "buyer reserves", "sole discretion",
+    "buyer may",
+    "buyer can",
+    "at the discretion",
+    "reserves the right",
+    "reserve the right",
+    "option clause",
+    "buyer reserves",
+    "sole discretion",
     "decision of the buyer",
 )
 _ELIGIBILITY_MARKERS = (
-    "eligib", "minimum", "at least", "criteria", "past experience",
-    "average annual turnover", "required experience", "pre-qualif",
-    "must possess", "should possess",
+    "eligib",
+    "minimum",
+    "at least",
+    "criteria",
+    "past experience",
+    "average annual turnover",
+    "required experience",
+    "pre-qualif",
+    "must possess",
+    "should possess",
 )
 _RESTRICTION_MARKERS = (
-    "only ", "restricted", "limitation", "limited to", "exclusively",
-    "no more than", "subject to",
+    "only ",
+    "restricted",
+    "limitation",
+    "limited to",
+    "exclusively",
+    "no more than",
+    "subject to",
 )
 _CONTRACTUAL_MARKERS = (
-    "contract", "warranty", "penalty", "penalties", "payment", "sdac",
-    "agreement", "extension", "option clause",
+    "contract",
+    "warranty",
+    "penalty",
+    "penalties",
+    "payment",
+    "sdac",
+    "agreement",
+    "extension",
+    "option clause",
 )
 _OBLIGATION_MARKERS = (
-    "shall", "must", "mandatory", "required", "should ", "upload",
-    "submit", "provide", "ensure", "furnish", "enclose",
+    "shall",
+    "must",
+    "mandatory",
+    "required",
+    "should ",
+    "upload",
+    "submit",
+    "provide",
+    "ensure",
+    "furnish",
+    "enclose",
 )
 _INFORMATIONAL_MARKERS = (
-    "click here", "uploaded by", "buyer uploaded", "uploaded ",
-    "for reference", "details below", "file attachment", "annex",
-    "enclosed", "for information",
+    "click here",
+    "uploaded by",
+    "buyer uploaded",
+    "uploaded ",
+    "for reference",
+    "details below",
+    "file attachment",
+    "annex",
+    "enclosed",
+    "for information",
 )
 _CONDITIONAL_MARKERS = (
-    "if ", "only if", "applicable", "conditional", "subject to",
-    "in case", "where ", "provided that", "requires consent", "consent of",
+    "if ",
+    "only if",
+    "applicable",
+    "conditional",
+    "subject to",
+    "in case",
+    "where ",
+    "provided that",
+    "requires consent",
+    "consent of",
 )
 
 
-def _has_any(text: str, markers: tuple) -> bool:
+def _has_any(text: str, markers: tuple[str, ...]) -> bool:
     return any(m in text for m in markers)
 
 
 def classify_semantics(
     title: str, original_text: str, model_value: Any = None
-) -> Tuple[str, bool]:
+) -> tuple[str, bool]:
     """Return (SemanticType value, strong_match).
 
     Deterministic keyword classification over title + original text. A
@@ -689,7 +793,7 @@ def classify_semantics(
     valid = {t.value for t in SemanticType}
     text = f"{title or ''} {original_text or ''}".lower()
 
-    model_mapped: Optional[str] = None
+    model_mapped: str | None = None
     if model_value:
         cand = str(model_value).strip().upper().replace(" ", "_").replace("-", "_")
         if cand in valid:
@@ -717,11 +821,11 @@ def classify_semantics(
 
 
 def refine_mandatory(
-    mandatory: Optional[bool],
-    condition: Optional[str],
+    mandatory: bool | None,
+    condition: str | None,
     title: str,
     original_text: str,
-) -> Tuple[Optional[bool], Optional[str]]:
+) -> tuple[bool | None, str | None]:
     """Conservative mandatory post-processing (P5).
 
     Explicit model values are never flipped. Only None is resolved, using
@@ -738,7 +842,9 @@ def refine_mandatory(
         return True, condition
     # Informational / buyer-discretion wording beats generic obligation
     # verbs: "buyer uploaded ..." contains "upload" but is no bidder duty.
-    if _has_any(text, _BUYER_DISCRETION_MARKERS) or _has_any(text, _INFORMATIONAL_MARKERS):
+    if _has_any(text, _BUYER_DISCRETION_MARKERS) or _has_any(
+        text, _INFORMATIONAL_MARKERS
+    ):
         return False, condition
     if _has_any(text, _OBLIGATION_MARKERS):
         return True, condition
@@ -750,16 +856,38 @@ def refine_mandatory(
 # requirements, never everything sharing a category+unit.
 # ---------------------------------------------------------------------------
 
-_EQUIV_STOPWORDS = frozenset({
-    "the", "a", "an", "of", "for", "and", "to", "in", "on", "by",
-    "bidder", "bid", "bids", "requirement", "requirements", "details",
-    "detail", "clause", "service", "services", "tender", "gem",
-})
+_EQUIV_STOPWORDS: frozenset[str] = frozenset(
+    {
+        "the",
+        "a",
+        "an",
+        "of",
+        "for",
+        "and",
+        "to",
+        "in",
+        "on",
+        "by",
+        "bidder",
+        "bid",
+        "bids",
+        "requirement",
+        "requirements",
+        "details",
+        "detail",
+        "clause",
+        "service",
+        "services",
+        "tender",
+        "gem",
+    }
+)
 
 
-def _content_tokens(title: str) -> frozenset:
+def _content_tokens(title: str) -> frozenset[str]:
     return frozenset(
-        t for t in re.findall(r"[a-z0-9]+", title.lower())
+        t
+        for t in re.findall(r"[a-z0-9]+", title.lower())
         if t not in _EQUIV_STOPWORDS and len(t) > 1
     )
 
@@ -808,7 +936,12 @@ _SEMANTIC_PREFIX = {
     "INFORMATIONAL": "Note",
 }
 
-_OPERATOR_PHRASE = {">=": "at least", "<=": "at most", "=": "exactly", "~": "approximately"}
+_OPERATOR_PHRASE = {
+    ">=": "at least",
+    "<=": "at most",
+    "=": "exactly",
+    "~": "approximately",
+}
 
 
 def fmt_number(value: float) -> str:
@@ -824,14 +957,14 @@ def fmt_number(value: float) -> str:
 def compose_normalized_description(
     *,
     title: str,
-    mandatory: Optional[bool],
-    threshold: Optional[Dict[str, Any]],
-    condition: Optional[str],
-    evidence: List[str],
+    mandatory: bool | None,
+    threshold: dict[str, Any] | None,
+    condition: str | None,
+    evidence: list[str],
     semantic_type: str,
-    deadlines: Optional[List[str]] = None,
+    deadlines: list[str] | None = None,
     original: str = "",
-) -> Tuple[Optional[str], Optional[str]]:
+) -> tuple[str | None, str | None]:
     """Build normalized_description from parsed fields only.
 
     Returns (description_or_None, review_flag_or_None). Every branch restates
@@ -851,7 +984,10 @@ def compose_normalized_description(
         condition or evidence or deadlines or has_threshold or mandatory is not None
     )
     if not has_title or not has_substance:
-        return None, "Normalized description unavailable — meaning cannot be established reliably"
+        return (
+            None,
+            "Normalized description unavailable — meaning cannot be established reliably",
+        )
 
     # Deadline-driven clauses: constraints or dates, not generic actions.
     # An explicit mandatory=True is a submission constraint even when the
@@ -859,7 +995,9 @@ def compose_normalized_description(
     # informational) is a date, not a duty.
     if deadlines:
         date = deadlines[0]
-        if mandatory is False or (mandatory is None and semantic_type == "INFORMATIONAL"):
+        if mandatory is False or (
+            mandatory is None and semantic_type == "INFORMATIONAL"
+        ):
             head = f"Informational date: {clean_title} — {date}."
         else:
             head = f"Submission constraint: {clean_title} — {date}."
@@ -873,6 +1011,7 @@ def compose_normalized_description(
     prefix = _SEMANTIC_PREFIX.get(semantic_type, "Requirement")
     # Informational figures are reference data, never binding thresholds.
     if semantic_type == "INFORMATIONAL" and has_threshold:
+        assert threshold is not None  # guaranteed by has_threshold above
         unit = f" {threshold['unit']}" if threshold.get("unit") else ""
         figure = f"{fmt_number(threshold['value'])}{unit}"
         desc = f"Reference figure: {clean_title} — {figure}"
@@ -887,6 +1026,7 @@ def compose_normalized_description(
 
     parts = [f"{prefix}: {clean_title}."]
     if has_threshold:
+        assert threshold is not None  # guaranteed by has_threshold above
         op = _OPERATOR_PHRASE.get(threshold.get("operator", "="), "exactly")
         unit = f" {threshold['unit']}" if threshold.get("unit") else ""
         parts.append(f"Threshold: {op} {fmt_number(threshold['value'])}{unit}.")
@@ -903,7 +1043,10 @@ def compose_normalized_description(
     # "Prohibition: <label>." never stands alone without the actual ban.
     if semantic_type == "PROHIBITION" and original:
         snippet = _snippet(original)
-        if snippet.lower() not in clean_title.lower() and clean_title.lower() not in snippet.lower():
+        if (
+            snippet.lower() not in clean_title.lower()
+            and clean_title.lower() not in snippet.lower()
+        ):
             parts.append(f"Details: {snippet}.")
     # Bare "Prefix: Title." adds nothing over the title — ground it with the
     # source excerpt instead of emitting a tautology.
@@ -923,13 +1066,14 @@ def _snippet(original: str, limit: int = 220) -> str:
     return text[: cut if cut > limit // 2 else limit]
 
 
-def normalize_metadata(data: Any) -> Dict[str, Any]:
+def normalize_metadata(data: Any) -> dict[str, Any]:
     """Lenient LLM metadata -> strict TenderMetadata dict (never raises on extras)."""
     if isinstance(data, BaseModel):
         raw = data.model_dump()
-    elif hasattr(data, "model_dump") and callable(getattr(data, "model_dump")):
+    elif hasattr(data, "model_dump") and callable(data.model_dump):
         try:
-            raw = dict(data.model_dump())
+            dumped = data.model_dump()
+            raw = dict(dumped) if isinstance(dumped, dict) else {}
         except Exception:
             raw = {}
     elif isinstance(data, dict):
@@ -951,8 +1095,15 @@ def normalize_metadata(data: Any) -> Dict[str, Any]:
     # Promote title-like keys hiding in other_metadata (P5): the model
     # sometimes files the title under a variant key instead of tender_title.
     if not clean.get("tender_title") and isinstance(clean.get("other_metadata"), dict):
-        for key in ("tender_title", "title", "work_title", "project_title",
-                    "tender_name", "name_of_work", "work_name"):
+        for key in (
+            "tender_title",
+            "title",
+            "work_title",
+            "project_title",
+            "tender_name",
+            "name_of_work",
+            "work_name",
+        ):
             candidate = clean["other_metadata"].get(key)
             if isinstance(candidate, str) and candidate.strip():
                 clean["tender_title"] = _clean(candidate.strip(), 2000)
@@ -964,7 +1115,7 @@ def normalize_metadata(data: Any) -> Dict[str, Any]:
     return TenderMetadata(**clean).model_dump()
 
 
-def _simple_to_canonical(d: Dict[str, Any]) -> Dict[str, Any]:
+def _simple_to_canonical(d: dict[str, Any]) -> dict[str, Any]:
     """Map flat simple-schema keys onto canonical LLMRequirement keys."""
     d = dict(d)
     if d.get("threshold") is None and d.get("threshold_text") is not None:
@@ -1000,7 +1151,7 @@ _ATTACHMENT_PATTERNS = (
 )
 
 
-def find_attachment_refs(*texts: Any) -> List[str]:
+def find_attachment_refs(*texts: Any) -> list[str]:
     """Detect references to annexures/ATC/SLA/attachments in free text.
 
     Returns short display labels, longest-match-wins per region (so
@@ -1008,14 +1159,14 @@ def find_attachment_refs(*texts: Any) -> List[str]:
     tokens like ATC/SLA against mid-word matches.
     """
     blob = " ".join(str(t) for t in texts if t).lower()
-    found: List[str] = []
+    found: list[str] = []
     for pattern, label in _ATTACHMENT_PATTERNS:
         if re.search(pattern, blob) and label not in found:
             found.append(label)
     return found
 
 
-def _clean_strict(d: Dict[str, Any]) -> Dict[str, Any]:
+def _clean_strict(d: dict[str, Any]) -> dict[str, Any]:
     """Sanitize strings inside an already-strict requirement dict (one level)."""
     out = dict(d)
     for k, v in out.items():
@@ -1023,13 +1174,19 @@ def _clean_strict(d: Dict[str, Any]) -> Dict[str, Any]:
             out[k] = _clean(v, 4000)
         elif isinstance(v, list):
             out[k] = [
-                {kk: (_clean(vv, 2000) if isinstance(vv, str) else vv) for kk, vv in i.items()}
+                {
+                    kk: (_clean(vv, 2000) if isinstance(vv, str) else vv)
+                    for kk, vv in i.items()
+                }
                 if isinstance(i, dict)
                 else (_clean(i, 1000) if isinstance(i, str) else i)
                 for i in v
             ]
         elif isinstance(v, dict):
-            out[k] = {kk: (_clean(vv, 2000) if isinstance(vv, str) else vv) for kk, vv in v.items()}
+            out[k] = {
+                kk: (_clean(vv, 2000) if isinstance(vv, str) else vv)
+                for kk, vv in v.items()
+            }
     return out
 
 
@@ -1038,7 +1195,7 @@ def normalize_requirement(
     document_name: str,
     default_page: int = 1,
     index: int = 0,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Lenient LLM requirement (model | dict | mock) -> strict TenderRequirement dict.
 
     Pipeline per requirement: extract raw fields -> infer threshold operator
@@ -1051,14 +1208,21 @@ def normalize_requirement(
     if isinstance(item, LLMSimpleRequirement):
         # Flat primary shape: remap to canonical keys, then run the same path.
         item = _simple_to_canonical(item.model_dump())
-    if hasattr(item, "model_dump") and callable(getattr(item, "model_dump")) and not isinstance(item, LLMRequirement):
+    if (
+        hasattr(item, "model_dump")
+        and callable(item.model_dump)
+        and not isinstance(item, LLMRequirement)
+    ):
         # Already-strict shapes (e.g. test mocks whose model_dump returns a
         # strict dict): validate directly, sanitizing strings on the way.
         try:
-            return _clean_strict(TenderRequirement(**item.model_dump()).model_dump())
+            dumped = item.model_dump()
+            strict_in = dumped if isinstance(dumped, dict) else {}
+            return _clean_strict(TenderRequirement(**strict_in).model_dump())
         except Exception:
             try:
-                raw = dict(item.model_dump())
+                dumped = item.model_dump()
+                raw = dict(dumped) if isinstance(dumped, dict) else {}
             except Exception:
                 raw = {}
         # fall through with raw dict
@@ -1095,9 +1259,7 @@ def normalize_requirement(
     extra_condition = _pick("applicability_condition", "condition", "note")
     notes = _pick("notes")
     deadlines = _as_str_list(_pick("deadlines", "deadline"))
-    applicability_parts = [
-        p for p in [condition, extra_condition] if p
-    ]
+    applicability_parts = [p for p in [condition, extra_condition] if p]
     if notes:
         applicability_parts.extend(_as_str_list(notes))
     # A bare deadline ("Deadlines: ...") is informative, not conditional —
@@ -1135,7 +1297,7 @@ def normalize_requirement(
 
     excerpt_fallback = str(original)[:2000]
     refs_raw = _pick("source_references", "sources", "references")
-    refs: List[Dict[str, Any]] = []
+    refs: list[dict[str, Any]] = []
     if isinstance(refs_raw, list) and refs_raw:
         flat_page = _pick("page", "page_number", "pageNumber")
         try:
@@ -1144,7 +1306,9 @@ def normalize_requirement(
             default_ref_page = default_page
         for r in refs_raw:
             refs.append(
-                _normalize_source_ref(r, document_name, default_ref_page, excerpt_fallback)
+                _normalize_source_ref(
+                    r, document_name, default_ref_page, excerpt_fallback
+                )
             )
     else:
         flat_page = _pick("page", "page_number", "pageNumber")
@@ -1160,9 +1324,9 @@ def normalize_requirement(
             )
 
     needs_review_raw = _pick("needs_review")
-    model_flagged = (
-        needs_review_raw is True
-        or (isinstance(needs_review_raw, str) and needs_review_raw.strip().lower() in ("true", "yes", "1"))
+    model_flagged = needs_review_raw is True or (
+        isinstance(needs_review_raw, str)
+        and needs_review_raw.strip().lower() in ("true", "yes", "1")
     )
     review_reason = _pick("review_reason")
     synthesized_id = not _pick("requirement_id", "requirementId", "id")
@@ -1186,7 +1350,7 @@ def normalize_requirement(
             normalized_description = model_description.strip()
 
     # Specific, actionable review reasons (P6) — generic one-liners removed.
-    reasons: List[str] = []
+    reasons: list[str] = []
     if synthesized_id:
         reasons.append(
             f"Requirement ID auto-generated as '{req_id}' (model omitted requirement_id)"
@@ -1194,7 +1358,8 @@ def normalize_requirement(
     if threshold_flag:
         reasons.append(threshold_flag)
     if mandatory is None and has_real_condition:
-        cond = applicability if len(applicability) <= 200 else applicability[:200] + "..."
+        cond_text = applicability or ""
+        cond = cond_text if len(cond_text) <= 200 else cond_text[:200] + "..."
         reasons.append(f"Conditional requirement — applies when: {cond}")
     attachments = find_attachment_refs(title, original, evidence, applicability)
     if attachments:
@@ -1213,7 +1378,11 @@ def normalize_requirement(
         reasons.append("Topic category defaulted to OTHER — verify classification")
     if model_flagged and not reasons:
         reasons.append("Flagged by extraction model (no specific reason given)")
-    if isinstance(review_reason, str) and review_reason.strip() and review_reason.strip() not in reasons:
+    if (
+        isinstance(review_reason, str)
+        and review_reason.strip()
+        and review_reason.strip() not in reasons
+    ):
         reasons.append(review_reason.strip())
     needs_review = bool(reasons) or model_flagged
 
@@ -1228,7 +1397,7 @@ def normalize_requirement(
     except (ValueError, TypeError):
         confidence = None
 
-    strict = {
+    strict: dict[str, Any] = {
         "requirement_id": _clean(str(req_id), 100),
         "category": category_value,
         "semantic_type": semantic_type,
@@ -1250,7 +1419,7 @@ def normalize_requirement(
 
 def normalize_requirement_list(
     data: Any, document_name: str, default_page: int = 1, start_index: int = 0
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Normalize one chunk's requirements.
 
     start_index is the global running offset so auto-generated IDs
@@ -1267,36 +1436,39 @@ def normalize_requirement_list(
             items = []
     if isinstance(items, dict):
         items = [items]
-    out: List[Dict[str, Any]] = []
+    out: list[dict[str, Any]] = []
     for idx, item in enumerate(items):
         try:
             out.append(
-                normalize_requirement(item, document_name, default_page, start_index + idx)
+                normalize_requirement(
+                    item, document_name, default_page, start_index + idx
+                )
             )
-        except Exception:
+        except Exception as e:
+            logger.debug("Skipping unrecoverable requirement: %s", e, exc_info=True)
             continue  # skip unrecoverable items, keep the rest
     return out
 
 
-def _dedup_key(req: Dict[str, Any]) -> str:
+def _dedup_key(req: dict[str, Any]) -> str:
     """Identity key for cross-chunk duplicates: normalized title + excerpt head."""
     title = re.sub(r"\s+", " ", str(req.get("title", "")).strip().lower())
-    excerpt = re.sub(
-        r"\s+", " ", str(req.get("original_text", "")).strip().lower()
-    )[:200]
+    excerpt = re.sub(r"\s+", " ", str(req.get("original_text", "")).strip().lower())[
+        :200
+    ]
     return f"{req.get('category', '')}||{title}||{excerpt}"
 
 
 def deduplicate_requirements(
-    requirements: List[Dict[str, Any]],
-) -> Tuple[List[Dict[str, Any]], List[str]]:
+    requirements: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], list[str]]:
     """Drop verbatim cross-chunk duplicates, keeping the FIRST occurrence.
 
     Stable IDs are preserved: the kept requirement retains its ID; dropped
     duplicate IDs are returned for reporting. Order is preserved.
     """
-    seen: Dict[str, Dict[str, Any]] = {}
-    dropped: List[str] = []
+    seen: dict[str, dict[str, Any]] = {}
+    dropped: list[str] = []
     for req in requirements:
         key = _dedup_key(req)
         if key in seen:
@@ -1307,15 +1479,15 @@ def deduplicate_requirements(
 
 
 def ensure_unique_ids(
-    requirements: List[Dict[str, Any]],
-) -> List[Dict[str, Any]]:
+    requirements: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
     """Guarantee globally unique requirement IDs (P1).
 
     The first occurrence of an ID is stable and untouched; later collisions
     (the model restarts R1..Rn every chunk) get deterministic "-2", "-3", ...
     suffixes in encounter order.
     """
-    seen: Dict[str, int] = {}
+    seen: dict[str, int] = {}
     for req in requirements:
         base = str(req.get("requirement_id") or "R-?")
         if base not in seen:

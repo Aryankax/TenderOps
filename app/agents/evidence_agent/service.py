@@ -2,6 +2,7 @@ import os
 
 from app.agents.evidence_agent.graph import evidence_agent_graph
 from app.agents.evidence_agent.retrieval import index_company_docs
+from app.agents.evidence_agent.state import EvidenceAgentState
 from app.models.evidence import EvidenceMap
 from app.models.tender import TenderAnalysisResult
 from app.services.observability import observability
@@ -28,7 +29,7 @@ class EvidenceAgentService:
             tender_id=tender_result.tender_id,
             requirements=len(tender_result.requirements),
         )
-        initial_state = {
+        initial_state: EvidenceAgentState = {
             "tender_id": tender_result.tender_id,
             "company_profile_id": company_profile_id,
             "requirements": [r.model_dump() for r in tender_result.requirements],

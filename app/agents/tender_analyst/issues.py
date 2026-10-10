@@ -16,30 +16,35 @@ reviewer can verify it without re-reading the tender.
 
 from __future__ import annotations
 
+import logging
 import re
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from app.agents.tender_analyst.llm_schemas import (
+    _enum_value,
     find_attachment_refs,
     fmt_number,
     titles_equivalent,
-    _enum_value,
 )
+
+logger = logging.getLogger(__name__)
 
 # Labels identifying a SPECIFIC buyer document vs generic file phrases.
 # Generic phrases ("linked file", "file attachment", ...) on a requirement
 # that already names a specific document are folded into that document's
 # issue instead of spawning duplicate issues.
-SPECIFIC_ATTACHMENT_LABELS = frozenset({
-    "ATC document",
-    "SLA document",
-    "annexure",
-    "appendix",
-    "addendum",
-    "corrigendum",
-    "amendment",
-})
+SPECIFIC_ATTACHMENT_LABELS = frozenset(
+    {
+        "ATC document",
+        "SLA document",
+        "annexure",
+        "appendix",
+        "addendum",
+        "corrigendum",
+        "amendment",
+    }
+)
 
 _DATE_FORMATS = (
     "%d-%m-%Y %H:%M:%S",
@@ -54,7 +59,7 @@ _DATE_FORMATS = (
 _DATE_RE = re.compile(r"\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\d{4}-\d{1,2}-\d{1,2}")
 
 
-def parse_date(text: Any) -> Optional[datetime]:
+def parse_date(text: Any) -> datetime | None:
     """Parse common tender date expressions; None when unparseable."""
     if not text or not isinstance(text, str):
         return None
@@ -79,14 +84,14 @@ def _topic_key(title: str) -> str:
     return re.sub(r"[^a-z0-9]", "", title.lower())[:60]
 
 
-def _first_refs(req: Dict[str, Any], limit: int = 2) -> List[Dict[str, Any]]:
+def _first_refs(req: dict[str, Any], limit: int = 2) -> list[dict[str, Any]]:
     refs = req.get("source_references") or []
     return [dict(r) for r in refs[:limit]]
 
 
 def detect_missing_attachments(
-    requirements: List[Dict[str, Any]], start_n: int = 1
-) -> Tuple[List[Dict[str, Any]], int]:
+    requirements: list[dict[str, Any]], start_n: int = 1
+) -> tuple[list[dict[str, Any]], int]:
     """One MISSING_ATTACHMENT issue per distinct missing document.
 
     Generic file phrases are deduplicated against specific documents: when a
@@ -95,7 +100,7 @@ def detect_missing_attachments(
     spawn extra issues. Independently referenced documents (ATC vs SLA vs
     corrigendum) always stay separate issues.
     """
-    by_label: Dict[str, Dict[str, Any]] = {}
+    by_label: dict[str, dict[str, Any]] = {}
     for req in requirements:
         labels = find_attachment_refs(
             req.get("title"),
@@ -114,7 +119,7 @@ def detect_missing_attachments(
             for r in _first_refs(req, 1):
                 if len(entry["refs"]) < 3 and r not in entry["refs"]:
                     entry["refs"].append(r)
-    issues: List[Dict[str, Any]] = []
+    issues: list[dict[str, Any]] = []
     n = start_n
     for label, entry in sorted(by_label.items()):
         issues.append(
@@ -137,15 +142,15 @@ def detect_missing_attachments(
 
 
 def detect_contradictions(
-    requirements: List[Dict[str, Any]],
-    metadata: Dict[str, Any],
+    requirements: list[dict[str, Any]],
+    metadata: dict[str, Any],
     start_n: int = 1,
-) -> Tuple[List[Dict[str, Any]], int]:
+) -> tuple[list[dict[str, Any]], int]:
     """Conflicting flags, thresholds and deadline ordering (conservative)."""
-    issues: List[Dict[str, Any]] = []
+    issues: list[dict[str, Any]] = []
     n = start_n
 
-    groups: Dict[str, List[Dict[str, Any]]] = {}
+    groups: dict[str, list[dict[str, Any]]] = {}
     for req in requirements:
         title = str(req.get("title", "")).strip()
         if not title:
@@ -159,7 +164,7 @@ def detect_contradictions(
         trues = sorted(i for i, v in flags.items() if v is True)
         falses = sorted(i for i, v in flags.items() if v is False)
         if trues and falses:
-            refs: List[Dict[str, Any]] = []
+            refs: list[dict[str, Any]] = []
             for r in group:
                 refs.extend(_first_refs(r, 1))
             issues.append(
@@ -203,7 +208,7 @@ def detect_contradictions(
     # ONLY between semantically equivalent titles. Sharing a category and
     # unit is not enough: minimum turnover and estimated bid value are
     # different financial concepts and must never be flagged together.
-    by_measure: Dict[Tuple[str, str], List[Dict[str, Any]]] = {}
+    by_measure: dict[tuple[str, str], list[dict[str, Any]]] = {}
     for req in requirements:
         th = req.get("threshold") or {}
         if th.get("value") is None:
@@ -211,26 +216,29 @@ def detect_contradictions(
         unit = str(th.get("unit", "")).strip().lower()
         if not unit:
             continue
-        by_measure.setdefault(
-            (_enum_value(req.get("category", "")), unit), []
-        ).append(req)
+        by_measure.setdefault((_enum_value(req.get("category", "")), unit), []).append(
+            req
+        )
     for (category, unit), group in sorted(by_measure.items()):
-        distinct: Dict[float, List[Dict[str, Any]]] = {}
+        distinct: dict[float, list[dict[str, Any]]] = {}
         for r in group:
             distinct.setdefault(float(r["threshold"]["value"]), []).append(r)
         if len(distinct) > 1:
             vals = sorted(distinct.items())
-            conflicting_ids: List[str] = []
-            conflict_notes: List[str] = []
-            seen_pairs: set = set()
+            conflicting_ids: list[str] = []
+            conflict_notes: list[str] = []
+            seen_pairs: set[tuple[str, str]] = set()
             for ia, (va, ras) in enumerate(vals):
-                for vb, rbs in vals[ia + 1:]:
+                for vb, rbs in vals[ia + 1 :]:
                     for ra in ras:
                         for rb in rbs:
-                            pair = tuple(sorted((
-                                str(ra.get("requirement_id")),
-                                str(rb.get("requirement_id")),
-                            )))
+                            ids_pair = sorted(
+                                (
+                                    str(ra.get("requirement_id")),
+                                    str(rb.get("requirement_id")),
+                                )
+                            )
+                            pair: tuple[str, str] = (ids_pair[0], ids_pair[1])
                             if pair in seen_pairs:
                                 continue
                             seen_pairs.add(pair)
@@ -248,12 +256,14 @@ def detect_contradictions(
                 continue
             all_ids = sorted(set(conflicting_ids))
             id_set = set(all_ids)
-            titles = sorted({
-                str(r.get("title", ""))
-                for r in group
-                if str(r.get("requirement_id")) in id_set
-            })
-            refs: List[Dict[str, Any]] = []
+            titles = sorted(
+                {
+                    str(r.get("title", ""))
+                    for r in group
+                    if str(r.get("requirement_id")) in id_set
+                }
+            )
+            refs: list[dict[str, Any]] = []
             for r in group:
                 if str(r.get("requirement_id")) in id_set:
                     refs.extend(_first_refs(r, 1))
@@ -278,20 +288,21 @@ def detect_contradictions(
 
 
 def detect_issues(
-    requirements: List[Dict[str, Any]],
-    metadata: Dict[str, Any],
+    requirements: list[dict[str, Any]],
+    metadata: dict[str, Any],
     document_name: str = "",  # noqa: ARG001 — kept for call-site clarity
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Run all detectors; returns validated issue dicts with stable IDs."""
     from app.models.tender import TenderAnalysisIssue
 
     issues, n = detect_missing_attachments(requirements, start_n=1)
     contra, _ = detect_contradictions(requirements, metadata or {}, start_n=n)
     issues.extend(contra)
-    validated: List[Dict[str, Any]] = []
+    validated: list[dict[str, Any]] = []
     for iss in issues:
         try:
             validated.append(TenderAnalysisIssue(**iss).model_dump())
-        except Exception:
+        except Exception as e:
+            logger.debug("Dropping invalid issue: %s", e, exc_info=True)
             continue
     return validated

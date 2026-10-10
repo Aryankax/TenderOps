@@ -26,7 +26,8 @@ def _save_upload(upload: UploadFile, suffix: str = ".pdf") -> str:
 @neatlogs.span(kind="WORKFLOW")
 async def run_pipeline(file: UploadFile = File(...)):
     """P1+P2 wired: analyze tender PDF, then map company evidence."""
-    if not file.filename.lower().endswith(".pdf"):
+    document_name = file.filename or "upload.pdf"
+    if not document_name.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Only PDF files are supported.")
     temp_path = _save_upload(file)
     try:
@@ -38,7 +39,7 @@ async def run_pipeline(file: UploadFile = File(...)):
             )
         try:
             analysis = TenderAnalystService.analyze_tender(
-                temp_path, document_name=file.filename
+                temp_path, document_name=document_name
             )
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
@@ -69,12 +70,12 @@ async def rebuild_evidence_index(files: list[UploadFile] = File(...)):
     saved = []
     try:
         for upload in files:
-            if not upload.filename.lower().endswith(".pdf"):
+            if not (upload.filename or "").lower().endswith(".pdf"):
                 raise HTTPException(
                     status_code=400, detail="Only PDF files are supported."
                 )
             path = _save_upload(upload)
-            saved.append({"path": path, "name": upload.filename})
+            saved.append({"path": path, "name": upload.filename or "upload.pdf"})
         from app.agents.evidence_agent.retrieval import index_company_docs
 
         stats = index_company_docs(saved, _DEFAULT_PROFILE)
