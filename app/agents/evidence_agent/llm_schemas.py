@@ -68,7 +68,10 @@ def _coerce_int(value: Any, default: int = 1) -> int:
 
 
 def normalize_mapping(
-    item: Any, requirement_id: str, hits: list[dict[str, Any]]
+    item: Any,
+    requirement_id: str,
+    hits: list[dict[str, Any]],
+    requirement_title: str | None = None,
 ) -> dict[str, Any]:
     """Lenient mapping -> strict RequirementEvidence dict.
 
@@ -95,6 +98,7 @@ def normalize_mapping(
 
     strict: dict[str, Any] = {
         "requirement_id": requirement_id,
+        "requirement_title": requirement_title,
         "status": status,
         "confidence": confidence,
         "hits": hits,

@@ -11,6 +11,7 @@ class EvidenceHit(BaseModel):
 
 class RequirementEvidence(BaseModel):
     requirement_id: str
+    requirement_title: str | None = None
     status: str  # satisfied | partial | missing | needs_review
     confidence: float = 0.0
     hits: list[EvidenceHit] = Field(default_factory=list)

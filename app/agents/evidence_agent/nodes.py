@@ -79,6 +79,9 @@ def map_evidence_node(state: EvidenceAgentState) -> EvidenceAgentState:
     observability.log_event("node_start", node="map_evidence", tender_id=tender_id)
     requirements = state.get("requirements", [])
     retrieved = state.get("retrieved", {})
+    titles = {
+        str(r.get("requirement_id", "?")): str(r.get("title", "")) for r in requirements
+    }
     items: list[dict[str, Any]] = []
     unmapped: list[str] = []
     batch_size = max(1, settings.EVIDENCE_MAP_BATCH_SIZE)
@@ -97,6 +100,7 @@ def map_evidence_node(state: EvidenceAgentState) -> EvidenceAgentState:
                     },
                     rid,
                     [],
+                    titles.get(rid),
                 )
             )
             unmapped.append(rid)
@@ -126,7 +130,9 @@ def map_evidence_node(state: EvidenceAgentState) -> EvidenceAgentState:
             for req in batch:
                 rid = str(req.get("requirement_id", "?"))
                 items.append(
-                    normalize_mapping(by_id.get(rid, {}), rid, retrieved.get(rid, []))
+                    normalize_mapping(
+                        by_id.get(rid, {}), rid, retrieved.get(rid, []), titles.get(rid)
+                    )
                 )
         except Exception as e:
             observability.log_error("mapping_failed", e, batch_index=i)
@@ -136,7 +142,9 @@ def map_evidence_node(state: EvidenceAgentState) -> EvidenceAgentState:
             )
             for req in batch:
                 rid = str(req.get("requirement_id", "?"))
-                items.append(normalize_mapping({}, rid, retrieved.get(rid, [])))
+                items.append(
+                    normalize_mapping({}, rid, retrieved.get(rid, []), titles.get(rid))
+                )
 
     # Preserve original requirement order.
     order = [str(r.get("requirement_id", "?")) for r in requirements]
