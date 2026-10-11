@@ -4,3 +4,10 @@ __pycache__/
 *.pyc
 .pytest_cache/
 .DS_Store
+docs/
+data/
+tests/
+scripts/
+.claude/
+.entire/
+.opencode/

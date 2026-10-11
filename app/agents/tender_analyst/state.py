@@ -1,17 +1,19 @@
-from typing import List, Dict, Any, Optional
+from typing import Any
+
 from typing_extensions import TypedDict
+
 
 class TenderAnalystState(TypedDict):
     tender_id: str
     document_name: str
-    parsed_pages: List[Dict[str, Any]]
-    warnings: List[str]
-    metadata: Optional[Dict[str, Any]]
-    requirements: List[Dict[str, Any]]
-    issues: List[Dict[str, Any]]
-    validation_errors: List[str]
-    failed_chunks: List[int]
+    parsed_pages: list[dict[str, Any]]
+    warnings: list[str]
+    metadata: dict[str, Any] | None
+    requirements: list[dict[str, Any]]
+    issues: list[dict[str, Any]]
+    validation_errors: list[str]
+    failed_chunks: list[int]
     retry_count: int
     analysis_status: str
-    final_result: Optional[Dict[str, Any]]
-    error_details: Optional[str]
+    final_result: dict[str, Any] | None
+    error_details: str | None

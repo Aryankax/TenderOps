@@ -26,10 +26,26 @@ uv run python -m pytest tests/
 
 ## API Usage
 
-The main Tender Analysis endpoint is:
-`POST /api/tender-analysis`
+The main endpoints are:
+
+- `POST /api/tender-analysis` — P1: analyze a tender PDF.
+- `POST /api/pipeline/run` — P1+P2 wired: tender PDF → requirements → evidence map.
+- `POST /api/pipeline/evidence-index` — replace the company evidence index
+  with uploaded PDFs (one per file field).
 
 Upload a PDF file using `multipart/form-data` with the key `file`.
+
+## Evidence agent (P2)
+
+Retrieves company evidence per requirement and judges support level:
+
+- Index: `data/sample-company/*.pdf` parsed page-wise into Chroma
+  (`data/evidence_chroma/`, local MiniLM embeddings — no API spend).
+  Rebuild fixtures with `uv run python scripts/make_sample_company_docs.py`.
+- `EvidenceMap` statuses: `satisfied` | `partial` | `missing` | `needs_review`,
+  each with confidence, source hits (doc + page + excerpt), and notes.
+- Numbers rule: the mapper never converts units or compares figures —
+  it quotes them verbatim and defers sufficiency to the P3 compliance engine.
 
 ## Observability
 

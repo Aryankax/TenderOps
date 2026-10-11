@@ -1,13 +1,13 @@
+import contextlib
 import json
 import re
 import time
-from typing import Any, Type
+from typing import Any, Literal
+
 from langchain_groq import ChatGroq
 from pydantic import BaseModel
-from app.core.config import settings
-from app.core.sanitize import sanitize_text
-from app.agents.tender_analyst.state import TenderAnalystState
-from app.agents.tender_analyst.prompts import METADATA_EXTRACTION_PROMPT, REQUIREMENTS_EXTRACTION_PROMPT
+
+from app.agents.tender_analyst.issues import detect_issues
 from app.agents.tender_analyst.llm_schemas import (
     LLMMetadata,
     LLMRequirementList,
@@ -18,7 +18,13 @@ from app.agents.tender_analyst.llm_schemas import (
     normalize_metadata,
     normalize_requirement_list,
 )
-from app.agents.tender_analyst.issues import detect_issues
+from app.agents.tender_analyst.prompts import (
+    METADATA_EXTRACTION_PROMPT,
+    REQUIREMENTS_EXTRACTION_PROMPT,
+)
+from app.agents.tender_analyst.state import TenderAnalystState
+from app.core.config import settings
+from app.core.sanitize import sanitize_text
 from app.services.observability import observability
 
 # NOTE: Do NOT append PydanticOutputParser.get_format_instructions() to prompts
@@ -35,12 +41,13 @@ def get_llm(max_tokens: int | None = None):
     """
     if settings.LITELLM_API_KEY:
         from langchain_openai import ChatOpenAI
+
         return ChatOpenAI(
             model=settings.LITELLM_MODEL,
             api_key=settings.LITELLM_API_KEY,
             base_url=settings.LITELLM_BASE_URL,
             temperature=0.0,
-            max_tokens=max_tokens or settings.GROQ_MAX_TOKENS,
+            max_tokens=max_tokens or settings.GROQ_MAX_TOKENS,  # pyright: ignore[reportCallIssue]  # accepted at runtime; newer stubs renamed it
         )
     return get_groq_llm(max_tokens=max_tokens)
 
@@ -56,7 +63,7 @@ def get_groq_llm(max_tokens: int | None = None):
     # (TENDER_ANALYST_MAX_CHUNK_CHARS) and asking for ≤10 requirements/chunk.
     return ChatGroq(
         model=settings.GROQ_MODEL,
-        api_key=settings.GROQ_API_KEY,
+        api_key=settings.GROQ_API_KEY,  # pyright: ignore[reportArgumentType]  # str accepted at runtime (SecretStr in stubs)
         temperature=0.0,
         max_tokens=max_tokens or settings.GROQ_MAX_TOKENS,
         reasoning_effort=settings.GROQ_REASONING_EFFORT,
@@ -195,10 +202,10 @@ RETRY_NUDGE = (
 
 
 def _invoke_structured(
-    schema: Type[BaseModel],
+    schema: type[BaseModel],
     prompt: str,
     operation: str,
-    fallback_schemas: tuple[Type[BaseModel], ...] = (),
+    fallback_schemas: tuple[type[BaseModel], ...] = (),
 ):
     """Invoke the LLM tolerantly.
 
@@ -241,10 +248,17 @@ def _invoke_structured(
             )
         abandoned = False
 
-        def _attempt_call(method: str, sch: Type[BaseModel], attempt: int, label: str):
+        def _attempt_call(
+            method: Literal["json_mode", "function_calling"],
+            sch: type[BaseModel],
+            attempt: int,
+            label: str,
+            _llm=llm,
+            _provider_name=provider_name,
+        ):
             nonlocal last_exc, abandoned
             try:
-                structured_llm = llm.with_structured_output(sch, method=method)  # type: ignore[arg-type]
+                structured_llm = _llm.with_structured_output(sch, method=method)  # type: ignore[arg-type]
                 # Nudge back to JSON-only on retries after a validation failure.
                 attempt_prompt = prompt + RETRY_NUDGE if attempt > 1 else prompt
                 return True, structured_llm.invoke(attempt_prompt)
@@ -256,7 +270,7 @@ def _invoke_structured(
                     operation=operation,
                     method=label,
                     attempt=attempt,
-                    provider=provider_name,
+                    provider=_provider_name,
                     is_provider_error=_is_provider_error(e),
                 )
                 if _is_rate_limit_error(e):
@@ -270,7 +284,9 @@ def _invoke_structured(
 
         for sch in (schema, *fallback_schemas):
             for attempt in range(1, max_retries + 1):
-                ok, result = _attempt_call("json_mode", sch, attempt, f"json_mode:{sch.__name__}")
+                ok, result = _attempt_call(
+                    "json_mode", sch, attempt, f"json_mode:{sch.__name__}"
+                )
                 if ok:
                     return result
                 if abandoned:
@@ -280,7 +296,9 @@ def _invoke_structured(
 
         if not abandoned:
             for attempt in range(1, max_retries + 1):
-                ok, result = _attempt_call("function_calling", schema, attempt, "function_calling")
+                ok, result = _attempt_call(
+                    "function_calling", schema, attempt, "function_calling"
+                )
                 if ok:
                     return result
                 if abandoned:
@@ -294,14 +312,13 @@ def _invoke_structured(
                     text = getattr(raw, "content", raw)
                     if isinstance(text, list):
                         text = "".join(
-                            getattr(b, "text", str(b)) for b in text  # type: ignore[attr-defined]
+                            getattr(b, "text", str(b))
+                            for b in text  # type: ignore[attr-defined]
                         )
                     data = _extract_json_object(str(text))
                     for sch in (schema, *fallback_schemas):
-                        try:
+                        with contextlib.suppress(Exception):
                             return sch(**data)
-                        except Exception:
-                            continue
                     # No schema accepted it — surface the primary schema's error.
                     return schema(**data)
                 except Exception as e:  # noqa: BLE001
@@ -332,10 +349,17 @@ def extract_metadata_node(state: TenderAnalystState) -> TenderAnalystState:
     if not state.get("parsed_pages"):
         state["analysis_status"] = "FAILED"
         state["error_details"] = "No pages to extract metadata from."
-        observability.log_event("node_failed", node="extract_metadata", reason="No pages", tender_id=tender_id)
+        observability.log_event(
+            "node_failed",
+            node="extract_metadata",
+            reason="No pages",
+            tender_id=tender_id,
+        )
         return state
 
-    content = "\n".join([p["text"] for p in state["parsed_pages"][:3]])  # First 3 pages for metadata usually
+    content = "\n".join(
+        [p["text"] for p in state["parsed_pages"][:3]]
+    )  # First 3 pages for metadata usually
     content = _truncate(sanitize_text(content), settings.TENDER_ANALYST_MAX_CHUNK_CHARS)
     prompt = METADATA_EXTRACTION_PROMPT.format(content=content)
 
@@ -372,23 +396,31 @@ def extract_metadata_node(state: TenderAnalystState) -> TenderAnalystState:
                 "tender_title unavailable — title could not be established reliably."
             )
         state["metadata"] = metadata
-        observability.log_event("node_success", node="extract_metadata", tender_id=tender_id)
+        observability.log_event(
+            "node_success", node="extract_metadata", tender_id=tender_id
+        )
     except Exception as e:
         state["validation_errors"].append(f"Metadata extraction failed: {str(e)[:500]}")
         state["metadata"] = {}
-        observability.log_error("node_error", e, node="extract_metadata", tender_id=tender_id)
+        observability.log_error(
+            "node_error", e, node="extract_metadata", tender_id=tender_id
+        )
 
     return state
 
 
 def extract_requirements_by_chunk_node(state: TenderAnalystState) -> TenderAnalystState:
     tender_id = state.get("tender_id", "unknown")
-    observability.log_event("node_start", node="extract_requirements", tender_id=tender_id)
+    observability.log_event(
+        "node_start", node="extract_requirements", tender_id=tender_id
+    )
     try:
         get_llm()
     except Exception as e:
         state["validation_errors"].append(str(e))
-        observability.log_error("node_error", e, node="extract_requirements", tender_id=tender_id)
+        observability.log_error(
+            "node_error", e, node="extract_requirements", tender_id=tender_id
+        )
         return state
 
     all_requirements = []
@@ -397,22 +429,31 @@ def extract_requirements_by_chunk_node(state: TenderAnalystState) -> TenderAnaly
     document_name = state.get("document_name", "document.pdf")
 
     for i in range(0, len(pages), chunk_size):
-        chunk = pages[i:i+chunk_size]
-        chunk_text = "\n\n".join([f"--- Page {p['page_number']} ---\n{p['text']}" for p in chunk if p["extraction_status"] == "SUCCESS"])
+        chunk = pages[i : i + chunk_size]
+        chunk_text = "\n\n".join(
+            [
+                f"--- Page {p['page_number']} ---\n{p['text']}"
+                for p in chunk
+                if p["extraction_status"] == "SUCCESS"
+            ]
+        )
         if not chunk_text.strip():
             continue
         # Keep prompt + completion inside the Groq TPM budget (413 otherwise),
         # and strip control chars so the model can't copy them into JSON.
-        chunk_text = _truncate(sanitize_text(chunk_text), settings.TENDER_ANALYST_MAX_CHUNK_CHARS)
+        chunk_text = _truncate(
+            sanitize_text(chunk_text), settings.TENDER_ANALYST_MAX_CHUNK_CHARS
+        )
 
         default_page = chunk[0].get("page_number", 1) if chunk else 1
         prompt = REQUIREMENTS_EXTRACTION_PROMPT.format(
-            document_name=document_name,
-            chunk_content=chunk_text
+            document_name=document_name, chunk_content=chunk_text
         )
 
         try:
-            observability.log_event("processing_chunk", chunk_index=i, tender_id=tender_id)
+            observability.log_event(
+                "processing_chunk", chunk_index=i, tender_id=tender_id
+            )
             res = _invoke_structured(
                 LLMSimpleRequirementList,
                 prompt,
@@ -429,9 +470,13 @@ def extract_requirements_by_chunk_node(state: TenderAnalystState) -> TenderAnaly
                 )
             all_requirements.extend(normalized)
         except Exception as e:
-            state["validation_errors"].append(f"Chunk {i} extraction failed: {str(e)[:500]}")
+            state["validation_errors"].append(
+                f"Chunk {i} extraction failed: {str(e)[:500]}"
+            )
             state.setdefault("failed_chunks", []).append(i)
-            observability.log_error("chunk_error", e, chunk_index=i, tender_id=tender_id)
+            observability.log_error(
+                "chunk_error", e, chunk_index=i, tender_id=tender_id
+            )
 
     # Merge the chunks here (P1): drop verbatim duplicates (first wins, IDs
     # stable) and guarantee globally unique IDs, so the detect_issues node
@@ -444,7 +489,12 @@ def extract_requirements_by_chunk_node(state: TenderAnalystState) -> TenderAnaly
             + ("" if len(dropped) <= 10 else f" (+{len(dropped) - 10} more)")
         )
     state["requirements"] = link_exemptions(ensure_unique_ids(merged))
-    observability.log_event("node_success", node="extract_requirements", tender_id=tender_id, total_requirements=len(state["requirements"]))
+    observability.log_event(
+        "node_success",
+        node="extract_requirements",
+        tender_id=tender_id,
+        total_requirements=len(state["requirements"]),
+    )
     return state
 
 
@@ -455,14 +505,21 @@ def detect_issues_node(state: TenderAnalystState) -> TenderAnalystState:
     try:
         issues = detect_issues(
             state.get("requirements", []),
-            state.get("metadata", {}),
+            state.get("metadata") or {},
             state.get("document_name", ""),
         )
         state["issues"] = issues
-        observability.log_event("node_success", node="detect_issues", tender_id=tender_id, total_issues=len(issues))
+        observability.log_event(
+            "node_success",
+            node="detect_issues",
+            tender_id=tender_id,
+            total_issues=len(issues),
+        )
     except Exception as e:
         state["validation_errors"].append(f"Issue detection failed: {str(e)[:300]}")
-        observability.log_error("node_error", e, node="detect_issues", tender_id=tender_id)
+        observability.log_error(
+            "node_error", e, node="detect_issues", tender_id=tender_id
+        )
     return state
 
 
@@ -496,7 +553,9 @@ def assemble_final_result_node(state: TenderAnalystState) -> TenderAnalystState:
         else:
             state["analysis_status"] = "SUCCESS"
 
-    unreadable = sum(1 for p in state.get("parsed_pages", []) if p["extraction_status"] == "NO_TEXT")
+    unreadable = sum(
+        1 for p in state.get("parsed_pages", []) if p["extraction_status"] == "NO_TEXT"
+    )
 
     final_result = {
         "tender_id": state["tender_id"],
@@ -507,14 +566,17 @@ def assemble_final_result_node(state: TenderAnalystState) -> TenderAnalystState:
         "total_pages": len(state.get("parsed_pages", [])),
         "processed_pages": len(state.get("parsed_pages", [])) - unreadable,
         "unreadable_pages": unreadable,
-        "requirements_needing_review": sum(1 for r in state.get("requirements", []) if r.get("needs_review")),
+        "requirements_needing_review": sum(
+            1 for r in state.get("requirements", []) if r.get("needs_review")
+        ),
         "warnings": state.get("warnings", []) + state.get("validation_errors", []),
         "failed_chunks": failed_chunks,
         # Execution success (analysis_status) is separate from completeness:
         # what data is actually missing vs merely flagged for review.
         "completeness": {
             "missing_metadata_fields": sorted(
-                k for k, v in (state.get("metadata", {}) or {}).items()
+                k
+                for k, v in (state.get("metadata", {}) or {}).items()
                 if v is None and k != "other_metadata"
             ),
             "failed_chunk_count": len(failed_chunks),
@@ -522,9 +584,14 @@ def assemble_final_result_node(state: TenderAnalystState) -> TenderAnalystState:
                 1 for r in state.get("requirements", []) if r.get("needs_review")
             ),
         },
-        "analysis_version": "1.0"
+        "analysis_version": "1.0",
     }
 
     state["final_result"] = final_result
-    observability.log_event("node_success", node="assemble_final", tender_id=tender_id, status=state["analysis_status"])
+    observability.log_event(
+        "node_success",
+        node="assemble_final",
+        tender_id=tender_id,
+        status=state["analysis_status"],
+    )
     return state
