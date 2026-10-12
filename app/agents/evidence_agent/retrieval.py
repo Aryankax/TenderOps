@@ -16,11 +16,25 @@ import os
 import re
 from typing import Any
 
-import chromadb
-
 from app.core.config import settings
 from app.services.observability import observability
 from app.tools.document_parser import DocumentParser
+
+
+def _require_chromadb():
+    """Import chromadb lazily so the API boots without the optional dep.
+
+    Raises a clear actionable error only when the evidence store is
+    actually used.
+    """
+    try:
+        import chromadb
+    except ImportError as e:
+        raise RuntimeError(
+            "Evidence store unavailable: the 'chromadb' package is not "
+            "installed. Run 'uv add chromadb' to enable the evidence agent."
+        ) from e
+    return chromadb
 
 _OVERLAP_STOPWORDS = frozenset(
     {
@@ -100,28 +114,58 @@ def _tokens_overlap(query: str, excerpt: str) -> bool:
     return False
 
 
+def sanitize_company_id(company_profile_id: str | None) -> str:
+    """Company namespace for the evidence index (X vs Z never mix).
+
+    Collection names become f"company_evidence_{id}", so the id is strictly
+    alphanumerics/dash/underscore. Applied at every collection entry point.
+    """
+    clean = re.sub(r"[^A-Za-z0-9_-]", "", str(company_profile_id or "").strip())
+    return clean[:64] or "sample"
+
+
 def _get_collection(company_profile_id: str):
+    chromadb = _require_chromadb()
     client = chromadb.PersistentClient(path=settings.EVIDENCE_CHROMA_DIR)
     return client.get_or_create_collection(
-        name=f"company_evidence_{company_profile_id}",
+        name=f"company_evidence_{sanitize_company_id(company_profile_id)}",
         metadata={"hnsw:space": "cosine"},
     )
 
 
 def index_company_docs(
-    docs: list[dict[str, str]], company_profile_id: str = "sample"
+    docs: list[dict[str, str]],
+    company_profile_id: str = "sample",
+    replace: bool = True,
 ) -> dict[str, Any]:
-    """Parse PDFs and (re)build the company evidence collection.
+    """Parse PDFs and build the company evidence collection.
 
     docs: [{"path": ..., "name": ...}]. Returns {"chunks": n, "documents": m}.
+    replace=False appends to the existing collection (resume flow) instead
+    of wiping it first.
     """
     collection = _get_collection(company_profile_id)
-    try:
-        existing = collection.get(limit=1)
-        if existing and existing.get("ids"):
-            collection.delete(ids=collection.get()["ids"])
-    except Exception as e:
-        observability.log_event("evidence_index_clear_skipped", reason=str(e)[:200])
+    if replace:
+        try:
+            existing = collection.get(limit=1)
+            if existing and existing.get("ids"):
+                collection.delete(ids=collection.get()["ids"])
+        except Exception as e:
+            observability.log_event("evidence_index_clear_skipped", reason=str(e)[:200])
+    else:
+        # Appending — but the same filename may already be indexed (resume
+        # retried, or fix re-uploaded): Chroma rejects duplicate chunk IDs, so
+        # drop this document's stale chunks first, then add the fresh parse.
+        try:
+            names = list({str(doc.get("name", "")) for doc in docs if doc.get("name")})
+            if names:
+                stale = collection.get(
+                    where={"document_name": {"$in": names}}, include=[]
+                )
+                if stale and stale.get("ids"):
+                    collection.delete(ids=stale["ids"])
+        except Exception as e:
+            observability.log_event("evidence_index_reindex_skipped", reason=str(e)[:200])
 
     ids, documents, metadatas = [], [], []
     doc_count = 0
@@ -168,28 +212,75 @@ def _coerce_page(value: Any) -> int:
         return 1
 
 
+def list_indexed_documents(
+    company_profile_id: str = "sample",
+) -> dict[str, Any]:
+    """Inventory of a company's index: per-document chunks + pages."""
+    collection = _get_collection(company_profile_id)
+    try:
+        stored = collection.get(include=["metadatas"])
+    except Exception:
+        return {"company_profile_id": sanitize_company_id(company_profile_id),
+                "documents": 0, "chunks": 0, "files": []}
+    by_doc: dict[str, dict[str, Any]] = {}
+    for meta in (stored.get("metadatas") or []):
+        name = str((meta or {}).get("document_name", "unknown"))
+        entry = by_doc.setdefault(name, {"name": name, "chunks": 0, "pages": set()})
+        entry["chunks"] += 1
+        try:
+            entry["pages"].add(int((meta or {}).get("page_number", 0) or 0))
+        except (ValueError, TypeError):
+            pass
+    files = [
+        {"name": name, "chunks": e["chunks"], "pages": sorted(e["pages"])}
+        for name, e in sorted(by_doc.items())
+    ]
+    return {
+        "company_profile_id": sanitize_company_id(company_profile_id),
+        "documents": len(files),
+        "chunks": sum(f["chunks"] for f in files),
+        "files": files,
+    }
+
+
 def query_evidence(
     query_text: str,
     company_profile_id: str = "sample",
     top_k: int | None = None,
+    document_name: str | None = None,
+    bypass_gates: bool = False,
 ) -> list[dict[str, Any]]:
-    """Return [{document_name, page_number, excerpt, score}] above threshold."""
+    """Return [{document_name, page_number, excerpt, score}] above threshold.
+
+    document_name constrains the search to one file (Chroma where-filter) —
+    used to pull fuller context from an already-selected document.
+    bypass_gates returns the top chunks unfiltered: last resort for scoped
+    fix-file re-checks so the mapping LLM actually reads the file instead of
+    reporting "missing" on an empty hit list. Confidence stays honest —
+    low scores still down-weight the verdict downstream.
+    """
+    if not query_text or not query_text.strip():
+        return []
     collection = _get_collection(company_profile_id)
-    res = collection.query(
-        query_texts=[query_text[:2000]],
-        n_results=top_k or settings.EVIDENCE_TOP_K,
-    )
+    kwargs: dict[str, Any] = {
+        "query_texts": [query_text[:2000]],
+        "n_results": top_k or settings.EVIDENCE_TOP_K,
+    }
+    if document_name:
+        kwargs["where"] = {"document_name": document_name}
+    res = collection.query(**kwargs)
     hits: list[dict[str, Any]] = []
     docs = (res.get("documents") or [[]])[0]
     metas = (res.get("metadatas") or [[]])[0]
     dists = (res.get("distances") or [[]])[0]
     for text, meta, dist in zip(docs, metas, dists):
         score = max(0.0, 1.0 - float(dist))
-        if score < settings.EVIDENCE_MIN_SCORE:
-            continue
         excerpt = str(text)[:1500]
-        if not _tokens_overlap(query_text, excerpt):
-            continue
+        if not bypass_gates:
+            if score < settings.EVIDENCE_MIN_SCORE:
+                continue
+            if not _tokens_overlap(query_text, excerpt):
+                continue
         hits.append(
             {
                 "document_name": str((meta or {}).get("document_name") or "unknown"),
@@ -203,9 +294,11 @@ def query_evidence(
 
 
 def reset_index(company_profile_id: str = "sample") -> None:
+    chromadb = _require_chromadb()
     client = chromadb.PersistentClient(path=settings.EVIDENCE_CHROMA_DIR)
     try:
-        client.delete_collection(name=f"company_evidence_{company_profile_id}")
+        name = f"company_evidence_{sanitize_company_id(company_profile_id)}"
+        client.delete_collection(name=name)
     except Exception as e:
         observability.log_event("evidence_index_reset_skipped", reason=str(e)[:200])
     # Best effort: remove empty persist dir.

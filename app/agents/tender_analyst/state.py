@@ -13,6 +13,7 @@ class TenderAnalystState(TypedDict):
     issues: list[dict[str, Any]]
     validation_errors: list[str]
     failed_chunks: list[int]
+    linked_documents: list[dict[str, Any]]
     retry_count: int
     analysis_status: str
     final_result: dict[str, Any] | None

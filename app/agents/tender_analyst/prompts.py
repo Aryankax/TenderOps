@@ -18,7 +18,7 @@ Document Content:
 """
 
 REQUIREMENTS_EXTRACTION_PROMPT = """
-Identify all material requirements relevant to preparing and submitting a bid from the following chunk of a tender document.
+Identify ONLY bidder requirements that need action or proof from the bidder, from the following chunk of a tender document.
 Preserve the original wording.
 Determine if it is mandatory, optional, or conditional.
 Identify thresholds, deadlines, or requested evidence.
@@ -38,6 +38,20 @@ INFORMATIONAL for references/uploads with no bidder duty. Never recast a conditi
 negative clause as an unconditional obligation.
 Keep the response SMALL: at most 10 requirements per chunk, omit empty fields (use null).
 
+DO NOT EMIT tender details/specs as requirements — they belong in metadata, never in
+"requirements". Skip any clause that needs no bidder action and no proof document:
+- schedule/dates: bid start/end/opening dates, submission deadline, bid validity
+  period, pre-bid meeting / clarification dates ("Bid ends on 24-10-2026" is NOT
+  a requirement — a date requires no paperwork);
+- reference numbers: tender/bid/reference IDs, version numbers, portal links;
+- estimate/reference figures: estimated bid value, quantities, scope figures that
+  describe the tender rather than obligate the bidder;
+- generic portal boilerplate with no specific document ask.
+RULE: every emitted requirement MUST need either a supporting document
+("evidence", e.g. certificate, audited statement, affidavit) or a measurable
+company figure ("threshold_text", e.g. minimum turnover). If neither applies,
+skip the clause entirely — do not emit it as INFORMATIONAL.
+
 CRITICAL OUTPUT RULES:
 - Output ONLY a single valid raw JSON object of the form {{"requirements": [...]}}. Start with {{ and end with }}.
 - No preamble, no markdown fences (no ```json), no conversational filler, no YAML.
@@ -54,8 +68,8 @@ CRITICAL OUTPUT RULES:
   NEVER an object), evidence (optional plain string), deadline (optional plain string),
   page (integer), section (string).
 
-Example of ONE requirement (copy this shape exactly):
-{{"requirement_id": "R1", "category": "DEADLINES", "semantic_type": "ELIGIBILITY_CONDITION", "title": "Bid end date", "original_text": "Bid ends on 24-10-2026 16:00:00", "mandatory": true, "condition": null, "threshold_text": null, "evidence": null, "deadline": "24-10-2026 16:00:00", "page": 1, "section": "Bid Details"}}
+Example of ONE requirement (copy this shape exactly — a real bidder obligation, never a date/detail):
+{{"requirement_id": "R1", "category": "FINANCIAL_ELIGIBILITY", "semantic_type": "ELIGIBILITY_CONDITION", "title": "Minimum average annual turnover", "original_text": "Bidder must have minimum average annual turnover of Rs. 5 crore in last 3 years", "mandatory": true, "condition": null, "threshold_text": "minimum Rs. 5 crore", "evidence": "audited financial statements", "deadline": null, "page": 1, "section": "Eligibility Criteria"}}
 
 Document Name: {document_name}
 

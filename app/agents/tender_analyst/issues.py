@@ -89,8 +89,34 @@ def _first_refs(req: dict[str, Any], limit: int = 2) -> list[dict[str, Any]]:
     return [dict(r) for r in refs[:limit]]
 
 
+_GENERIC_ATTACHMENT_LABELS = frozenset(
+    {
+        "linked file (click here to view)",
+        "file attachment",
+        "buyer-added bid-specific document",
+        "enclosure",
+    }
+)
+
+
+def _label_keywords(label: str) -> list[str]:
+    """Content words identifying a document label (stopwords dropped)."""
+    stop = {
+        "document", "doc", "file", "linked", "link", "here", "view", "click",
+        "buyer", "added", "specific", "bid", "attachment", "attachments",
+    }
+    return [
+        t
+        for t in re.findall(r"[a-z0-9]+", label.lower())
+        if t not in stop and len(t) > 2
+    ]
+
+
 def detect_missing_attachments(
-    requirements: list[dict[str, Any]], start_n: int = 1
+    requirements: list[dict[str, Any]],
+    start_n: int = 1,
+    available_documents: list[str] | None = None,
+    main_document: str = "",
 ) -> tuple[list[dict[str, Any]], int]:
     """One MISSING_ATTACHMENT issue per distinct missing document.
 
@@ -99,7 +125,31 @@ def detect_missing_attachments(
     attachment" / "buyer-added" phrases refer to that same file and do not
     spawn extra issues. Independently referenced documents (ATC vs SLA vs
     corrigendum) always stay separate issues.
+
+    available_documents lists files already analyzed (main tender + fetched
+    annexures): a label keyword-matching a fetched file is satisfied, not
+    missing. A generic phrase on a requirement sourced from a fetched annex
+    is likewise folded away — its content is already in hand.
     """
+    available = [a for a in (available_documents or []) if a]
+    fetched = {a for a in available if a != main_document}
+
+    def doc_covers_label(filename: str, label: str) -> bool:
+        keywords = _label_keywords(label)
+        if not keywords:
+            return False
+        blob = filename.lower()
+        return any(kw in blob for kw in keywords)
+
+    def req_sourced_from_fetched(req: dict[str, Any]) -> bool:
+        if not fetched:
+            return False
+        for ref in req.get("source_references") or []:
+            doc = str((ref or {}).get("document_name", ""))
+            if doc and doc in fetched:
+                return True
+        return False
+
     by_label: dict[str, dict[str, Any]] = {}
     for req in requirements:
         labels = find_attachment_refs(
@@ -111,7 +161,18 @@ def detect_missing_attachments(
         specific = [lb for lb in labels if lb in SPECIFIC_ATTACHMENT_LABELS]
         # Fold generic phrases into the specific document(s) on this req.
         effective = specific or labels
+        # Drop labels already satisfied by a fetched annexure.
+        kept = []
         for label in effective:
+            if any(doc_covers_label(f, label) for f in fetched):
+                continue
+            if (
+                label in _GENERIC_ATTACHMENT_LABELS
+                and req_sourced_from_fetched(req)
+            ):
+                continue
+            kept.append(label)
+        for label in kept:
             entry = by_label.setdefault(label, {"ids": [], "refs": []})
             rid = str(req.get("requirement_id", "?"))
             if rid not in entry["ids"]:
@@ -290,12 +351,22 @@ def detect_contradictions(
 def detect_issues(
     requirements: list[dict[str, Any]],
     metadata: dict[str, Any],
-    document_name: str = "",  # noqa: ARG001 — kept for call-site clarity
+    document_name: str = "",
+    available_documents: list[str] | None = None,
 ) -> list[dict[str, Any]]:
-    """Run all detectors; returns validated issue dicts with stable IDs."""
+    """Run all detectors; returns validated issue dicts with stable IDs.
+
+    available_documents lists files already analyzed (main tender + fetched
+    annexures) so satisfied references are not reported missing.
+    """
     from app.models.tender import TenderAnalysisIssue
 
-    issues, n = detect_missing_attachments(requirements, start_n=1)
+    issues, n = detect_missing_attachments(
+        requirements,
+        start_n=1,
+        available_documents=available_documents,
+        main_document=document_name,
+    )
     contra, _ = detect_contradictions(requirements, metadata or {}, start_n=n)
     issues.extend(contra)
     validated: list[dict[str, Any]] = []

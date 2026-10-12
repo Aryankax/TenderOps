@@ -1,13 +1,18 @@
 .env
 .venv/
+node_modules/
+.next/
 __pycache__/
 *.pyc
 .pytest_cache/
 .DS_Store
-docs/
+# docs/, tests/, scripts/ are source (hack submission needs them committed).
+# data/ is runtime state (sqlite, chroma index, uploads, local checkpoints).
 data/
-tests/
-scripts/
+# Keep per-file sample fixtures committable if added later:
+# !data/sample-company/
 .claude/
-.entire/
+# Entire project config IS committed (settings, agent guides, runners);
+# personal/runtime files are excluded by .entire/.gitignore.
+# (.entire/ intentionally not ignored)
 .opencode/

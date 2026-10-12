@@ -29,6 +29,33 @@ class Settings(BaseSettings):
     EVIDENCE_TOP_K: int = 3
     EVIDENCE_MIN_SCORE: float = 0.15
     EVIDENCE_MAP_BATCH_SIZE: int = 6
+    # Recall width per query variant (local search: cheap, filtered later).
+    EVIDENCE_RETRIEVE_WIDTH: int = 8
+    # Max excerpts attached to one requirement after merge + enrichment.
+    EVIDENCE_MAX_EXCERPTS: int = 6
+    # Zip upload caps for the evidence index (zip-slip / zip-bomb guards).
+    EVIDENCE_MAX_ZIP_SIZE_MB: int = 100
+    EVIDENCE_MAX_ZIP_FILES: int = 200
+    # Async job store + upload staging.
+    JOBS_DB_PATH: str = "./data/jobs.sqlite"
+    UPLOAD_DIR: str = "./data/uploads"
+    # Bid drafting batch width (LLM calls per batch).
+    BIDPREP_BATCH_SIZE: int = 6
+    # Tender link crawler (annexure BFS): depth/doc/time/size budgets.
+    TENDER_LINK_MAX_DEPTH: int = 2
+    TENDER_LINK_MAX_DOCS: int = 10
+    TENDER_LINK_TIMEOUT_S: int = 20
+    TENDER_LINK_MAX_MB: int = 50
+    # Compliance agent (P3) checkpoint store for pause/resume.
+    CHECKPOINT_DIR: str = "./data/checkpoints"
+    # Entire Continuous Memory (Neathacks 2026): local checkpoint store used
+    # when the Entire CLI / Graph / Brain binaries are not installed.
+    ENTIRE_MEMORY_DIR: str = "./data/entire_memory"
+    ENTIRE_ENABLED: bool = True
+    # Auth (enterprise): SQLite users/companies/sessions, Bearer tokens.
+    AUTH_DB_PATH: str = "./data/auth.sqlite"
+    AUTH_TOKEN_TTL_HOURS: int = 24 * 7
+    AUTH_REQUIRED: bool = True
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 

@@ -24,6 +24,7 @@ from app.agents.tender_analyst.prompts import (
 )
 from app.agents.tender_analyst.state import TenderAnalystState
 from app.core.config import settings
+from app.core.requirement_refs import build_ref_map, resolve_requirement_refs
 from app.core.sanitize import sanitize_text
 from app.services.observability import observability
 
@@ -358,8 +359,15 @@ def extract_metadata_node(state: TenderAnalystState) -> TenderAnalystState:
         return state
 
     content = "\n".join(
-        [p["text"] for p in state["parsed_pages"][:3]]
-    )  # First 3 pages for metadata usually
+        [
+            p["text"]
+            for p in state["parsed_pages"][:3]
+            if p.get("document_name", state.get("document_name", "")) == state.get("document_name", "")
+        ]
+    )  # First 3 pages of the MAIN document for metadata usually
+    if not content.strip():
+        # Fallback for states predating per-page document attribution.
+        content = "\n".join([p["text"] for p in state["parsed_pages"][:3]])
     content = _truncate(sanitize_text(content), settings.TENDER_ANALYST_MAX_CHUNK_CHARS)
     prompt = METADATA_EXTRACTION_PROMPT.format(content=content)
 
@@ -432,7 +440,7 @@ def extract_requirements_by_chunk_node(state: TenderAnalystState) -> TenderAnaly
         chunk = pages[i : i + chunk_size]
         chunk_text = "\n\n".join(
             [
-                f"--- Page {p['page_number']} ---\n{p['text']}"
+                f"--- {p.get('document_name', document_name) or document_name} | Page {p['page_number']} ---\n{p['text']}"
                 for p in chunk
                 if p["extraction_status"] == "SUCCESS"
             ]
@@ -446,8 +454,15 @@ def extract_requirements_by_chunk_node(state: TenderAnalystState) -> TenderAnaly
         )
 
         default_page = chunk[0].get("page_number", 1) if chunk else 1
+        # Per-chunk owning document: annexure pages keep their own filename
+        # so requirements and source refs stay attributed (multi-doc).
+        chunk_doc = (
+            chunk[0].get("document_name", document_name) or document_name
+            if chunk
+            else document_name
+        )
         prompt = REQUIREMENTS_EXTRACTION_PROMPT.format(
-            document_name=document_name, chunk_content=chunk_text
+            document_name=chunk_doc, chunk_content=chunk_text
         )
 
         try:
@@ -462,7 +477,7 @@ def extract_requirements_by_chunk_node(state: TenderAnalystState) -> TenderAnaly
             )
             # Global offset: auto-generated IDs never restart per chunk (P1).
             normalized = normalize_requirement_list(
-                res, document_name, default_page, start_index=len(all_requirements)
+                res, chunk_doc, default_page, start_index=len(all_requirements)
             )
             if not normalized:
                 state["validation_errors"].append(
@@ -503,10 +518,17 @@ def detect_issues_node(state: TenderAnalystState) -> TenderAnalystState:
     tender_id = state.get("tender_id", "unknown")
     observability.log_event("node_start", node="detect_issues", tender_id=tender_id)
     try:
+        main_doc = state.get("document_name", "")
+        fetched_docs = [
+            m.get("filename", "")
+            for m in state.get("linked_documents", [])
+            if m.get("status") == "fetched" and m.get("filename")
+        ]
         issues = detect_issues(
             state.get("requirements", []),
             state.get("metadata") or {},
-            state.get("document_name", ""),
+            main_doc,
+            available_documents=[main_doc, *fetched_docs],
         )
         state["issues"] = issues
         observability.log_event(
@@ -538,6 +560,21 @@ def assemble_final_result_node(state: TenderAnalystState) -> TenderAnalystState:
         ]
     requirements = link_exemptions(ensure_unique_ids(requirements))
     state["requirements"] = requirements
+
+    # Human-readable citations: expand bare IDs in LLM-written prose
+    # (review reasons, issue descriptions) into title + description.
+    # Structured ID fields are untouched.
+    ref_map = build_ref_map(state["requirements"], state.get("issues", []))
+    for req in state["requirements"]:
+        if req.get("review_reason"):
+            req["review_reason"] = resolve_requirement_refs(
+                req["review_reason"], ref_map
+            )
+    for issue in state.get("issues", []):
+        if issue.get("description"):
+            issue["description"] = resolve_requirement_refs(
+                issue["description"], ref_map
+            )
 
     failed_chunks = state.get("failed_chunks", []) or []
     if state.get("analysis_status") != "FAILED":
@@ -571,6 +608,7 @@ def assemble_final_result_node(state: TenderAnalystState) -> TenderAnalystState:
         ),
         "warnings": state.get("warnings", []) + state.get("validation_errors", []),
         "failed_chunks": failed_chunks,
+        "linked_documents": state.get("linked_documents", []),
         # Execution success (analysis_status) is separate from completeness:
         # what data is actually missing vs merely flagged for review.
         "completeness": {

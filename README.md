@@ -50,3 +50,21 @@ Retrieves company evidence per requirement and judges support level:
 ## Observability
 
 We use an isolated adapter in `app/services/observability.py` for `neatlogs`. The actual integration will be added once the `neatlogs` API can be verified.
+
+## Entire Continuous Memory (Neathacks 2026)
+
+TenderOps ships an offline-first Entire integration — Best Use of Entire entry:
+
+- Auto checkpoint per supervised run (`OrchestratorService.run_tender()`),
+  API at `/api/entire/*`, UI at `/entire`.
+- Before-you-build briefing, intent-vs-change reviewer, Graph drift detector,
+  checkpoint-to-demo generator, regression test scout.
+- Agent instructions: `AGENTS.md`, `CLAUDE.md`, `.entire/graph-agent.md`,
+  `.entire/agent-guide.md`. Full guide: `ENTIRE.md`.
+
+```bash
+uv run python scripts/entire_brief.py --query "EMD exemption check"
+uv run python scripts/entire_review.py --latest
+uv run python scripts/entire_demo.py --latest
+uv run python -m pytest tests/test_entire_memory.py -q
+```

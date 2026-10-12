@@ -23,21 +23,34 @@ class EvidenceAgentService:
     def map_evidence(
         tender_result: TenderAnalysisResult,
         company_profile_id: str = "sample",
+        requirement_ids: list[str] | None = None,
+        source_documents: list[str] | None = None,
     ) -> EvidenceMap:
+        """Map evidence, optionally for a SUBSET of requirements (P3 resume:
+        only affected checks re-run) and ONLY inside given source documents
+        (resume fix files attached to specific blockers)."""
+        requirements = [r.model_dump() for r in tender_result.requirements]
+        if requirement_ids is not None:
+            wanted = set(requirement_ids)
+            requirements = [
+                r for r in requirements if str(r.get("requirement_id")) in wanted
+            ]
         observability.log_event(
             "evidence_mapping_started",
             tender_id=tender_result.tender_id,
-            requirements=len(tender_result.requirements),
+            requirements=len(requirements),
+            scoped_documents=source_documents or [],
         )
         initial_state: EvidenceAgentState = {
             "tender_id": tender_result.tender_id,
             "company_profile_id": company_profile_id,
-            "requirements": [r.model_dump() for r in tender_result.requirements],
+            "requirements": requirements,
             "retrieved": {},
             "items": [],
             "unmapped": [],
             "warnings": [],
             "final_result": None,
+            "source_documents": source_documents,
         }
         try:
             import neatlogs

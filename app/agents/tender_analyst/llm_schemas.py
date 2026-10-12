@@ -1130,6 +1130,55 @@ def _simple_to_canonical(d: dict[str, Any]) -> dict[str, Any]:
     return d
 
 
+# Bid details (dates, reference numbers, estimates) are INFORMATION, not
+# document asks: a date never requires proof from the bidder. Veto words
+# are document-demand verbs/nouns — anything carrying them is a real ask.
+_DOC_DEMAND_MARKERS = (
+    "upload", "submit", "enclose", "furnish", "provide", "certificate",
+    "evidence", "document", "attested", "self-certified",
+)
+_DETAIL_MARKERS = (
+    "bid end", "bid open", "opening date", "end date", "deadline",
+    "reference", "tender no", "tender number", "bid no", "tender id",
+    "estimated", "validity", "published", "bid details", "version",
+)
+_ANY_DATE_RE = re.compile(
+    r"\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\d{4}-\d{1,2}-\d{1,2}|"
+    r"\d{1,2}\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+\d{2,4}",
+    re.IGNORECASE,
+)
+
+
+def _is_informational_detail(title: str, original: str, semantic_type: str) -> bool:
+    """True for bare bid details (dates, refs, estimates): never a document ask."""
+    if semantic_type == "INFORMATIONAL":
+        return True
+    text = f"{title or ''} {original or ''}".lower()
+    if _has_any(text, _DOC_DEMAND_MARKERS):
+        return False
+    if _ANY_DATE_RE.search(text):
+        return True
+    return _has_any(text, _DETAIL_MARKERS)
+
+
+def is_proof_free_detail(req: dict[str, Any]) -> bool:
+    """True for tender details/specs masquerading as requirements.
+
+    A requirement is only real if the bidder must prove something: a
+    supporting document (required_evidence) or a measurable company figure
+    (numeric threshold). INFORMATIONAL clauses with neither — bid start/end
+    dates, reference numbers, estimates, validity periods, portal boilerplate —
+    are tender details, not requirements, and must not reach evidence mapping,
+    compliance, or blockers. Evidence-bearing INFORMATIONAL clauses (a real
+    document ask the classifier left as INFORMATIONAL) are kept.
+    """
+    if _enum_value(req.get("semantic_type")) != "INFORMATIONAL":
+        return False
+    if req.get("required_evidence"):
+        return False
+    return True
+
+
 # ---------------------------------------------------------------------------
 # Referenced-attachment detection (P4/P6): buyer-side documents cited in the
 # tender (ATC, SLA, annexures...) that are NOT part of the analyzed PDF.
@@ -1286,6 +1335,13 @@ def normalize_requirement(
         str(title), str(original), model_value=_pick("semantic_type")
     )
 
+    # Bare bid details (dates, refs, estimates) are INFORMATION, never a
+    # document ask: the model sometimes demands "Bid document" proof for a
+    # date. Clear it — a date requires no bidder paperwork.
+    if _is_informational_detail(str(title), str(original), semantic_type):
+        semantic_type = "INFORMATIONAL"
+        evidence = []
+
     # Exemptions/relaxations are relief from a base requirement — never an
     # ordinary threshold the bidder must satisfy (P2). Keep the verbatim
     # wording and unit, but drop the numeric obligation framing; the base
@@ -1437,16 +1493,26 @@ def normalize_requirement_list(
     if isinstance(items, dict):
         items = [items]
     out: list[dict[str, Any]] = []
+    dropped_details = 0
     for idx, item in enumerate(items):
         try:
-            out.append(
-                normalize_requirement(
-                    item, document_name, default_page, start_index + idx
-                )
+            norm = normalize_requirement(
+                item, document_name, default_page, start_index + idx
             )
         except Exception as e:
             logger.debug("Skipping unrecoverable requirement: %s", e, exc_info=True)
             continue  # skip unrecoverable items, keep the rest
+        # Tender details (dates, refs, estimates) need no bidder proof:
+        # drop them so they never reach evidence mapping or blockers.
+        if is_proof_free_detail(norm):
+            dropped_details += 1
+            logger.debug(
+                "Dropping proof-free tender detail: %r", norm.get("title")
+            )
+            continue
+        out.append(norm)
+    if dropped_details:
+        logger.info("Dropped %d proof-free tender detail(s)", dropped_details)
     return out
 
 

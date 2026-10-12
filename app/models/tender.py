@@ -108,5 +108,6 @@ class TenderAnalysisResult(BaseModel):
     requirements_needing_review: int
     warnings: list[str] = Field(default_factory=list)
     failed_chunks: list[int] = Field(default_factory=list)
+    linked_documents: list[dict[str, Any]] = Field(default_factory=list)
     completeness: dict[str, Any] = Field(default_factory=dict)
     analysis_version: str = "1.0"
