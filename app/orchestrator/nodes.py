@@ -5,7 +5,6 @@ from app.agents.compliance_agent.service import ComplianceService
 from app.agents.evidence_agent.service import EvidenceAgentService
 from app.agents.tender_analyst.service import TenderAnalystService
 from app.agents.verification_agent.service import VerificationService
-from app.models.bid import BidPackage, VerificationReport
 from app.models.compliance import ComplianceMatrix
 from app.models.evidence import EvidenceMap
 from app.models.tender import TenderAnalysisResult
@@ -42,7 +41,8 @@ def p1_node(state: OrchestratorState) -> OrchestratorState:
 
 def p2_node(state: OrchestratorState) -> OrchestratorState:
     observability.log_event("node_start", node="orchestrator_p2", run_id=state["run_id"])
-    analysis = TenderAnalysisResult(**state["analysis"])
+    d = state["analysis"]
+    analysis = TenderAnalysisResult(**(dict(d) if isinstance(d, dict) else {}))
     evidence = EvidenceAgentService.map_evidence(
         analysis, state.get("company_profile_id", "sample")
     )
@@ -52,18 +52,23 @@ def p2_node(state: OrchestratorState) -> OrchestratorState:
 
 def p3_node(state: OrchestratorState) -> OrchestratorState:
     observability.log_event("node_start", node="orchestrator_p3", run_id=state["run_id"])
-    analysis = TenderAnalysisResult(**state["analysis"])
-    evidence = EvidenceMap(**state["evidence"])
+    d = state["analysis"]
+    analysis = TenderAnalysisResult(**(dict(d) if isinstance(d, dict) else {}))
+    e = state["evidence"]
+    evidence = EvidenceMap(**(dict(e) if isinstance(e, dict) else {}))
     compliance = ComplianceService.evaluate(analysis, evidence)
     state["compliance"] = compliance.model_dump()
     return state
 
 
 def _models(state: OrchestratorState):
+    a = state["analysis"]
+    e = state["evidence"]
+    c = state["compliance"]
     return (
-        TenderAnalysisResult(**state["analysis"]),
-        EvidenceMap(**state["evidence"]),
-        ComplianceMatrix(**state["compliance"]),
+        TenderAnalysisResult(**(dict(a) if isinstance(a, dict) else {})),
+        EvidenceMap(**(dict(e) if isinstance(e, dict) else {})),
+        ComplianceMatrix(**(dict(c) if isinstance(c, dict) else {})),
     )
 
 
@@ -74,7 +79,7 @@ def p4_draft_node(state: OrchestratorState) -> OrchestratorState:
     )
     analysis, evidence, compliance = _models(state)
     prev_package = state.get("package")
-    prev_findings: list[dict] = []
+    prev_findings: list[dict[str, Any]] = []
     draft_req_ids: list[str] | None = None
     if prev_package:
         failed = [

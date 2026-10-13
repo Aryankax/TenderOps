@@ -12,6 +12,7 @@ distances compress into a narrow band and absolute scores are meaningless
 
 from __future__ import annotations
 
+import contextlib
 import os
 import re
 from typing import Any
@@ -160,9 +161,8 @@ def index_company_docs(
         try:
             names = list({str(doc.get("name", "")) for doc in docs if doc.get("name")})
             if names:
-                stale = collection.get(
-                    where={"document_name": {"$in": names}}, include=[]
-                )
+                name_filter: dict[str, Any] = {"document_name": {"$in": names}}
+                stale = collection.get(where=name_filter, include=[])
                 if stale and stale.get("ids"):
                     collection.delete(ids=stale["ids"])
         except Exception as e:
@@ -234,11 +234,9 @@ def list_indexed_documents(
         name = str((meta or {}).get("document_name", "unknown"))
         entry = by_doc.setdefault(name, {"name": name, "chunks": 0, "pages": set()})
         entry["chunks"] += 1
-        try:
-            entry["pages"].add(int((meta or {}).get("page_number", 0) or 0))
-        except (ValueError, TypeError):
-            pass
-    files = [
+        with contextlib.suppress(ValueError, TypeError):
+            entry["pages"].add(_coerce_page((meta or {}).get("page_number", 0)))
+    files: list[dict[str, Any]] = [
         {"name": name, "chunks": e["chunks"], "pages": sorted(e["pages"])}
         for name, e in sorted(by_doc.items())
     ]

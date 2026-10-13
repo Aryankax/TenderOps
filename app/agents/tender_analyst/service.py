@@ -1,6 +1,7 @@
 import shutil
 import tempfile
 import uuid
+from typing import Any
 
 from app.agents.tender_analyst.graph import tender_analyst_graph
 from app.agents.tender_analyst.state import TenderAnalystState
@@ -34,7 +35,7 @@ class TenderAnalystService:
 
         pages = [p.model_dump() for p in parser_result.pages]
         warnings = list(parser_result.warnings)
-        linked_manifest: list[dict] = []
+        linked_manifest: list[dict[str, Any]] = []
         if fetch_links:
             linked_manifest = TenderAnalystService._fetch_linked_documents(
                 file_path, document_name, tender_id, pages, warnings
@@ -79,9 +80,9 @@ class TenderAnalystService:
         file_path: str,
         document_name: str,
         tender_id: str,
-        pages: list,
-        warnings: list,
-    ) -> list[dict]:
+        pages: list[dict[str, Any]],
+        warnings: list[str],
+    ) -> list[dict[str, Any]]:
         """BFS the tender's embedded links; parse fetched annexures as pages.
 
         Annex pages carry their own document_name so requirements keep

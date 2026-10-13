@@ -13,7 +13,8 @@ import os
 import sqlite3
 import uuid
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+from typing import Any
 
 from app.core.config import settings
 from app.services.observability import observability
@@ -44,7 +45,7 @@ def _connect() -> sqlite3.Connection:
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def create_job(document_name: str, company_id: str = "sample") -> str:
@@ -56,8 +57,17 @@ def create_job(document_name: str, company_id: str = "sample") -> str:
             "INSERT INTO jobs (id, tender_id, document_name, status, "
             "created_at, updated_at, result_json, error, company_id) "
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (job_id, "", document_name, "QUEUED", _now(), _now(), "", "",
-             sanitize_company_id(company_id)),
+            (
+                job_id,
+                "",
+                document_name,
+                "QUEUED",
+                _now(),
+                _now(),
+                "",
+                "",
+                sanitize_company_id(company_id),
+            ),
         )
     return job_id
 
@@ -70,7 +80,7 @@ def set_running(job_id: str) -> None:
         )
 
 
-def store_result(job_id: str, tender_id: str, result: dict) -> None:
+def store_result(job_id: str, tender_id: str, result: dict[str, Any]) -> None:
     with _connect() as conn:
         conn.execute(
             "UPDATE jobs SET status='DONE', tender_id=?, updated_at=?, "
@@ -87,7 +97,7 @@ def store_error(job_id: str, error: str) -> None:
         )
 
 
-def get_job(job_id: str) -> dict | None:
+def get_job(job_id: str) -> dict[str, Any] | None:
     with _connect() as conn:
         conn.row_factory = sqlite3.Row
         row = conn.execute("SELECT * FROM jobs WHERE id=?", (job_id,)).fetchone()
@@ -103,7 +113,7 @@ def get_job(job_id: str) -> dict | None:
     return out
 
 
-def list_jobs(limit: int = 20) -> list[dict]:
+def list_jobs(limit: int = 20) -> list[dict[str, Any]]:
     with _connect() as conn:
         conn.row_factory = sqlite3.Row
         rows = conn.execute(
@@ -137,8 +147,17 @@ def create_resume_job(tender_id: str, company_id: str = "sample") -> str:
             "INSERT INTO jobs (id, tender_id, document_name, status, "
             "created_at, updated_at, result_json, error, company_id) "
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (job_id, tender_id, f"resume:{tender_id}", "QUEUED", _now(),
-             _now(), "", "", sanitize_company_id(company_id)),
+            (
+                job_id,
+                tender_id,
+                f"resume:{tender_id}",
+                "QUEUED",
+                _now(),
+                _now(),
+                "",
+                "",
+                sanitize_company_id(company_id),
+            ),
         )
     return job_id
 
@@ -170,13 +189,8 @@ def run_resume_sync(
     set_running(job_id)
     inbox = resume_upload_dir(job_id)
     try:
-        names = sorted(
-            f for f in os.listdir(inbox) if f.lower().endswith(".pdf")
-        )
-        new_docs = (
-            [{"path": os.path.join(inbox, n), "name": n} for n in names]
-            or None
-        )
+        names = sorted(f for f in os.listdir(inbox) if f.lower().endswith(".pdf"))
+        new_docs = [{"path": os.path.join(inbox, n), "name": n} for n in names] or None
         resumed = ComplianceService.resume_pipeline(
             tender_id,
             new_docs=new_docs,
@@ -196,13 +210,9 @@ def run_resume_sync(
             package=resumed.get("package"),
             verification=resumed.get("verification"),
             pipeline_status=(
-                "PAUSED_ON_BLOCKERS"
-                if compliance.decision == "PAUSE"
-                else "COMPLETED"
+                "PAUSED_ON_BLOCKERS" if compliance.decision == "PAUSE" else "COMPLETED"
             ),
-            checkpoint_path=ComplianceService.checkpoint_path(
-                analysis.tender_id
-            ),
+            checkpoint_path=ComplianceService.checkpoint_path(analysis.tender_id),
         ).model_dump()
         store_result(job_id, str(analysis.tender_id), result)
         observability.log_event(
@@ -228,8 +238,11 @@ def submit_resume_job(
     from app.agents.evidence_agent.retrieval import sanitize_company_id
 
     return _EXECUTOR.submit(
-        run_resume_sync, job_id, tender_id,
-        sanitize_company_id(company_profile_id), waived_blocker_ids or None,
+        run_resume_sync,
+        job_id,
+        tender_id,
+        sanitize_company_id(company_profile_id),
+        waived_blocker_ids or None,
         fix_map or None,
     )
 
@@ -278,6 +291,9 @@ def submit_job(
     from app.agents.evidence_agent.retrieval import sanitize_company_id
 
     return _EXECUTOR.submit(
-        run_job_sync, job_id, document_name,
-        sanitize_company_id(company_profile_id), fetch_links,
+        run_job_sync,
+        job_id,
+        document_name,
+        sanitize_company_id(company_profile_id),
+        fetch_links,
     )

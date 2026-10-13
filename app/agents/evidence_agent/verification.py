@@ -18,14 +18,14 @@ Design rules:
 from __future__ import annotations
 
 import re
-from typing import Any
+from typing import Any, cast
 
 from app.agents.tender_analyst.llm_schemas import (
     _enum_value,
     _extract_number,
     fmt_number,
 )
-from app.models.evidence import RequirementEvidence
+from app.models.evidence import EvidenceHit, RequirementEvidence
 
 # Requirement classes with no company-side satisfaction target. Exemptions
 # are included defensively: post-reframe they carry value None anyway, but
@@ -320,7 +320,9 @@ def verify_numeric_requirement(
             requirement_title=str(req.get("title", "") or "") or None,
             status="satisfied",
             confidence=confidence,
-            hits=hits,
+            # Dicts coerce to EvidenceHit inside the model; cast keeps the
+            # annotation honest without changing runtime behavior.
+            hits=cast("list[EvidenceHit]", hits),
             computed_value=fig["value"],
             computed_unit=fig["unit"] or None,
             notes=(
@@ -333,7 +335,9 @@ def verify_numeric_requirement(
         requirement_title=str(req.get("title", "") or "") or None,
         status="missing",
         confidence=round(min(0.85, 0.55 + 0.45 * hit_score), 2),
-        hits=hits,
+        # Dicts coerce to EvidenceHit inside the model; cast keeps the
+        # annotation honest without changing runtime behavior.
+        hits=cast("list[EvidenceHit]", hits),
         computed_value=fig["value"],
         computed_unit=fig["unit"] or None,
         notes=(

@@ -1,3 +1,4 @@
+import logging
 from typing import Any
 
 from app.agents.bidprep_agent.llm_schemas import LLMDraftList, normalize_draft
@@ -6,6 +7,8 @@ from app.agents.bidprep_agent.state import BidPrepAgentState
 from app.agents.tender_analyst.nodes import _invoke_structured
 from app.core.config import settings
 from app.services.observability import observability
+
+logger = logging.getLogger(__name__)
 
 
 def _format_batch(
@@ -89,6 +92,7 @@ def draft_node(state: BidPrepAgentState) -> BidPrepAgentState:
                         )
                     )
                 except Exception:
+                    logger.debug("draft skipped for %s", rid, exc_info=True)
                     continue
         except Exception as e:  # noqa: BLE001 — one bad batch skips, rest survive
             observability.log_error("draft_failed", e, batch_index=i)

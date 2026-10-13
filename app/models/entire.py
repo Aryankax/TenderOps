@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 
@@ -11,7 +13,7 @@ class CheckpointIn(BaseModel):
     request: str = ""
     decisions: list[str] = Field(default_factory=list)
     changed_files: list[str] = Field(default_factory=list)
-    validation: dict = Field(default_factory=dict)
+    validation: dict[str, Any] = Field(default_factory=dict)
     git_commit: str = ""
     branch: str = ""
 
@@ -23,7 +25,7 @@ class CheckpointOut(BaseModel):
     request: str
     decisions: list[str]
     changed_files: list[str]
-    validation: dict
+    validation: dict[str, Any]
     git_commit: str
     branch: str
     created_at: float

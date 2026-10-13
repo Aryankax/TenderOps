@@ -1,3 +1,5 @@
+from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
@@ -15,7 +17,9 @@ class Credentials(BaseModel):
 
 
 @router.post(
-    "/signup", status_code=201, summary="Create an account",
+    "/signup",
+    status_code=201,
+    summary="Create an account",
     responses={400: {"description": "Invalid name/password or name taken."}},
 )
 async def signup(creds: Credentials):
@@ -28,7 +32,8 @@ async def signup(creds: Credentials):
 
 
 @router.post(
-    "/login", summary="Log in",
+    "/login",
+    summary="Log in",
     responses={401: {"description": "Wrong username or password."}},
 )
 async def login(creds: Credentials):
@@ -43,7 +48,7 @@ async def login(creds: Credentials):
 async def logout(
     request: Request,
     creds: HTTPAuthorizationCredentials | None = Depends(_bearer),
-    user: dict = Depends(get_current_user),
+    user: dict[str, Any] = Depends(get_current_user),
 ):
     token = None
     if creds and creds.scheme.lower() == "bearer":
@@ -53,5 +58,5 @@ async def logout(
 
 
 @router.get("/me", summary="Current user")
-async def me(user: dict = Depends(get_current_user)):
+async def me(user: dict[str, Any] = Depends(get_current_user)):
     return {"user": user, "companies": auth_store.list_companies(user["id"])}

@@ -102,8 +102,20 @@ _GENERIC_ATTACHMENT_LABELS = frozenset(
 def _label_keywords(label: str) -> list[str]:
     """Content words identifying a document label (stopwords dropped)."""
     stop = {
-        "document", "doc", "file", "linked", "link", "here", "view", "click",
-        "buyer", "added", "specific", "bid", "attachment", "attachments",
+        "document",
+        "doc",
+        "file",
+        "linked",
+        "link",
+        "here",
+        "view",
+        "click",
+        "buyer",
+        "added",
+        "specific",
+        "bid",
+        "attachment",
+        "attachments",
     }
     return [
         t
@@ -166,10 +178,7 @@ def detect_missing_attachments(
         for label in effective:
             if any(doc_covers_label(f, label) for f in fetched):
                 continue
-            if (
-                label in _GENERIC_ATTACHMENT_LABELS
-                and req_sourced_from_fetched(req)
-            ):
+            if label in _GENERIC_ATTACHMENT_LABELS and req_sourced_from_fetched(req):
                 continue
             kept.append(label)
         for label in kept:

@@ -10,6 +10,7 @@ import logging
 import threading
 import time
 from collections import deque
+from typing import Any
 
 logger = logging.getLogger("tenderops")
 logger.setLevel(logging.INFO)
@@ -18,12 +19,12 @@ formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(messag
 ch.setFormatter(formatter)
 logger.addHandler(ch)
 
-_EVENT_BUFFER: deque = deque(maxlen=500)
+_EVENT_BUFFER: deque[dict[str, Any]] = deque(maxlen=500)
 _EVENT_LOCK = threading.Lock()
 _EVENT_SEQ = itertools.count(1)
 
 
-def _record(kind: str, name: str, payload: dict) -> None:
+def _record(kind: str, name: str, payload: dict[str, Any]) -> None:
     try:
         safe = jsonable(payload)
     except Exception:
@@ -51,7 +52,9 @@ def jsonable(value):
     return str(value)[:500]
 
 
-def read_events(after_seq: int = 0, tender_id: str | None = None) -> list[dict]:
+def read_events(
+    after_seq: int = 0, tender_id: str | None = None
+) -> list[dict[str, Any]]:
     """Snapshot of buffered events (newest last), optionally filtered."""
     with _EVENT_LOCK:
         buffered = list(_EVENT_BUFFER)

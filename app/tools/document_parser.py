@@ -27,8 +27,16 @@ def _ocr_page_to_text(page: "fitz.Page") -> str | None:
         from PIL import Image
 
         pix = page.get_pixmap(dpi=200)
-        img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-        return pytesseract.image_to_string(img) or None
+        img = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
+        out = pytesseract.image_to_string(img)
+        if isinstance(out, str):
+            return out or None
+        if isinstance(out, bytes):
+            try:
+                return out.decode("utf-8", "ignore") or None
+            except Exception:
+                return None
+        return None
     except Exception:
         return None
 

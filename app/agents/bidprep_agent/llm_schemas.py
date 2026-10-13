@@ -84,7 +84,7 @@ def normalize_draft(item: Any, requirement_id: str, default_kind: str) -> dict[s
     if not isinstance(signoff, bool):
         signoff = kind == "declaration"
     title = str(raw.get("title") or "").strip() or f"Draft for {requirement_id}"
-    strict = {
+    strict: dict[str, Any] = {
         "draft_id": f"D-{requirement_id}",
         "requirement_id": requirement_id,
         "kind": kind,

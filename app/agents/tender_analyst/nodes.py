@@ -362,7 +362,8 @@ def extract_metadata_node(state: TenderAnalystState) -> TenderAnalystState:
         [
             p["text"]
             for p in state["parsed_pages"][:3]
-            if p.get("document_name", state.get("document_name", "")) == state.get("document_name", "")
+            if p.get("document_name", state.get("document_name", ""))
+            == state.get("document_name", "")
         ]
     )  # First 3 pages of the MAIN document for metadata usually
     if not content.strip():

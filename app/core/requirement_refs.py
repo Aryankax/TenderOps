@@ -16,7 +16,8 @@ re-expand. Unknown IDs are left as-is.
 from __future__ import annotations
 
 import re
-from typing import Any, Mapping
+from collections.abc import Mapping, Sequence
+from typing import Any
 
 # R1 / R1-2 (greedy tail first) / REQ-001 / ISSUE-001 / BLK-001 — but never
 # an ID already expanded inside square brackets.
@@ -36,9 +37,9 @@ def _clip(text: str, limit: int = _DESC_CLIP) -> str:
 
 
 def build_ref_map(
-    requirements: list[Mapping[str, Any]] | None = None,
-    issues: list[Mapping[str, Any]] | None = None,
-    blockers: list[Mapping[str, Any]] | None = None,
+    requirements: Sequence[Mapping[str, Any]] | None = None,
+    issues: Sequence[Mapping[str, Any]] | None = None,
+    blockers: Sequence[Mapping[str, Any]] | None = None,
 ) -> dict[str, str]:
     """Map every known ID to its human-readable expansion."""
     ref_map: dict[str, str] = {}
@@ -63,7 +64,9 @@ def build_ref_map(
         bid = str(blocker.get("blocker_id", "") or "").strip()
         if not bid or bid in ref_map:
             continue
-        btype = str(blocker.get("blocker_type", "") or "blocker").replace("_", " ").title()
+        btype = (
+            str(blocker.get("blocker_type", "") or "blocker").replace("_", " ").title()
+        )
         ref_map[bid] = f'"{btype}" [{bid}]'
     return ref_map
 
@@ -75,7 +78,7 @@ def resolve_requirement_refs(
     if not text or not ref_map:
         return text
 
-    def _expand(match: re.Match) -> str:
+    def _expand(match: re.Match[str]) -> str:
         rid = match.group(0)
         return ref_map.get(rid, rid)
 

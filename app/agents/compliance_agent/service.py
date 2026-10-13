@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from app.agents.compliance_agent.graph import compliance_agent_graph
@@ -75,7 +75,7 @@ class ComplianceService:
         path = ComplianceService.checkpoint_path(tender_id)
         snapshot = {
             **payload,
-            "saved_at": datetime.now(timezone.utc).isoformat(),
+            "saved_at": datetime.now(UTC).isoformat(),
         }
         with open(path, "w", encoding="utf-8") as f:
             json.dump(snapshot, f, ensure_ascii=False)

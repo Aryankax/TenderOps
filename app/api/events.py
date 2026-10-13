@@ -1,5 +1,6 @@
 import asyncio
 import json
+from typing import Any
 
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import StreamingResponse
@@ -24,7 +25,7 @@ router = APIRouter(prefix="/api/events", tags=["Events"])
 async def stream_events(
     tender_id: str | None = Query(default=None),
     after: int = Query(default=0),
-    user: dict = Depends(get_current_user),
+    user: dict[str, Any] = Depends(get_current_user),
 ):
     async def generate():
         seq = after

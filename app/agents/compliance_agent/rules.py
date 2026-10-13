@@ -137,7 +137,7 @@ def evaluate_compliance(
             if h.get("excerpt")
         ]
         reasons: list[str] = []
-        pending_blocker: dict[str, Any] | None = None
+        pending_blocker: tuple[str, str] | None = None
 
         if ev_status == "satisfied":
             ok, claim = _numeric_recheck(
@@ -150,7 +150,7 @@ def evaluate_compliance(
             else:
                 status = ComplianceStatus.COMPLIANT
                 reasons.append(
-                    f"Evidence satisfies the requirement"
+                    "Evidence satisfies the requirement"
                     + (f" ({claim})" if claim else f" ({ev.get('notes', '') or 'documentary match'}).")
                 )
         elif ev_status == "needs_review":

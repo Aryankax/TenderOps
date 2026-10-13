@@ -94,7 +94,7 @@ class OrchestratorService:
 
 
 def _record_entire_checkpoint(run_id: str, document_name: str,
-                              final_state: dict, checkpoint_path: str | None) -> None:
+                              final_state: dict[str, Any], checkpoint_path: str | None) -> None:
     """Best-effort Entire checkpoint so future agents learn from this run.
 
     Never fails the pipeline: Entire is memory, not the critical path.

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from typing import Any
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from pydantic import BaseModel
@@ -19,16 +20,18 @@ class CreateCompany(BaseModel):
 
 
 @router.get("", summary="My companies")
-async def my_companies(user: dict = Depends(get_current_user)):
+async def my_companies(user: dict[str, Any] = Depends(get_current_user)):
     return {"companies": auth_store.list_companies(user["id"])}
 
 
 @router.post(
-    "", status_code=201, summary="Create a company workspace",
+    "",
+    status_code=201,
+    summary="Create a company workspace",
     responses={400: {"description": "Invalid name."}},
 )
 async def create_company(
-    payload: CreateCompany, user: dict = Depends(get_current_user)
+    payload: CreateCompany, user: dict[str, Any] = Depends(get_current_user)
 ):
     try:
         company = auth_store.create_company(user["id"], payload.name)
@@ -38,21 +41,26 @@ async def create_company(
 
 
 @router.get("/{slug}", summary="Company + indexed document inventory")
-async def company_detail(slug: str, user: dict = Depends(get_current_user)):
+async def company_detail(slug: str, user: dict[str, Any] = Depends(get_current_user)):
     clean = require_company_access(user, slug)
     company = auth_store.get_company_by_slug(clean)
-    return {"company": auth_store.public_company(company or {}),
-            "index": retrieval.list_indexed_documents(clean)}
+    return {
+        "company": auth_store.public_company(company or {}),
+        "index": retrieval.list_indexed_documents(clean),
+    }
 
 
 @router.get("/{slug}/documents", summary="Indexed documents for a company")
-async def company_documents(slug: str, user: dict = Depends(get_current_user)):
+async def company_documents(
+    slug: str, user: dict[str, Any] = Depends(get_current_user)
+):
     clean = require_company_access(user, slug)
     return retrieval.list_indexed_documents(clean)
 
 
 @router.post(
-    "/{slug}/documents", summary="Upload PDFs/zips into a company's index",
+    "/{slug}/documents",
+    summary="Upload PDFs/zips into a company's index",
     responses={
         400: {"description": "No usable PDFs."},
         403: {"description": "Not your company."},
@@ -60,7 +68,7 @@ async def company_documents(slug: str, user: dict = Depends(get_current_user)):
 )
 async def upload_company_documents(
     slug: str,
-    user: dict = Depends(get_current_user),
+    user: dict[str, Any] = Depends(get_current_user),
     files: list[UploadFile] | None = File(default=None),
     zip_file: UploadFile | str | None = File(default=None),
 ):
@@ -111,8 +119,10 @@ async def upload_company_documents(
             raise HTTPException(status_code=400, detail=detail)
         stats = retrieval.index_company_docs(saved, clean, replace=False)
         return {
-            "company_profile_id": clean, **stats,
-            "indexed_files": [s["name"] for s in saved], "skipped": skipped,
+            "company_profile_id": clean,
+            **stats,
+            "indexed_files": [s["name"] for s in saved],
+            "skipped": skipped,
         }
     finally:
         for path in temp_paths:

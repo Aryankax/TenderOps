@@ -13,7 +13,8 @@ import os
 import re
 import secrets
 import sqlite3
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from app.core.config import settings
 
@@ -47,7 +48,7 @@ def _connect() -> sqlite3.Connection:
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def _new_id(prefix: str) -> str:
@@ -57,6 +58,7 @@ def _new_id(prefix: str) -> str:
 
 
 # -- passwords ------------------------------------------------------------
+
 
 def hash_password(password: str) -> str:
     salt = secrets.token_bytes(16)
@@ -70,8 +72,10 @@ def check_password(password: str, stored: str) -> bool:
     try:
         _, iters, salt_hex, hash_hex = stored.split("$")
         digest = hashlib.pbkdf2_hmac(
-            "sha256", password.encode("utf-8"),
-            bytes.fromhex(salt_hex), int(iters),
+            "sha256",
+            password.encode("utf-8"),
+            bytes.fromhex(salt_hex),
+            int(iters),
         )
         return secrets.compare_digest(digest.hex(), hash_hex)
     except Exception:
@@ -81,9 +85,7 @@ def check_password(password: str, stored: str) -> bool:
 def validate_username(username: str) -> str:
     clean = (username or "").strip()
     if not re.fullmatch(r"[A-Za-z0-9_-]{3,32}", clean):
-        raise ValueError(
-            "Username must be 3-32 chars: letters, digits, _ or -."
-        )
+        raise ValueError("Username must be 3-32 chars: letters, digits, _ or -.")
     return clean
 
 
@@ -95,12 +97,15 @@ def validate_password(password: str) -> str:
 
 # -- users ----------------------------------------------------------------
 
-def create_user(username: str, password: str) -> dict:
+
+def create_user(username: str, password: str) -> dict[str, Any]:
     username = validate_username(username)
     validate_password(password)
     user = {
-        "id": _new_id("usr"), "username": username,
-        "pw_hash": hash_password(password), "created_at": _now(),
+        "id": _new_id("usr"),
+        "username": username,
+        "pw_hash": hash_password(password),
+        "created_at": _now(),
     }
     try:
         with _connect() as conn:
@@ -114,11 +119,11 @@ def create_user(username: str, password: str) -> dict:
     return public_user(user)
 
 
-def public_user(user: dict) -> dict:
+def public_user(user: dict[str, Any]) -> dict[str, Any]:
     return {"id": user["id"], "username": user["username"]}
 
 
-def verify_user(username: str, password: str) -> dict | None:
+def verify_user(username: str, password: str) -> dict[str, Any] | None:
     with _connect() as conn:
         conn.row_factory = sqlite3.Row
         row = conn.execute(
@@ -132,7 +137,7 @@ def verify_user(username: str, password: str) -> dict | None:
     return public_user(user)
 
 
-def get_user(user_id: str) -> dict | None:
+def get_user(user_id: str) -> dict[str, Any] | None:
     with _connect() as conn:
         conn.row_factory = sqlite3.Row
         row = conn.execute("SELECT * FROM users WHERE id=?", (user_id,)).fetchone()
@@ -141,25 +146,25 @@ def get_user(user_id: str) -> dict | None:
 
 # -- sessions ---------------------------------------------------------------
 
+
 def _token_hash(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
-def create_session(user_id: str) -> dict:
+def create_session(user_id: str) -> dict[str, Any]:
     token = secrets.token_urlsafe(32)
     ttl = timedelta(hours=max(1, int(getattr(settings, "AUTH_TOKEN_TTL_HOURS", 168))))
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     with _connect() as conn:
         conn.execute(
             "INSERT INTO sessions (token_hash, user_id, created_at, expires_at) "
             "VALUES (?, ?, ?, ?)",
-            (_token_hash(token), user_id, now.isoformat(),
-             (now + ttl).isoformat()),
+            (_token_hash(token), user_id, now.isoformat(), (now + ttl).isoformat()),
         )
     return {"token": token, "expires_at": (now + ttl).isoformat()}
 
 
-def get_session_user(token: str | None) -> dict | None:
+def get_session_user(token: str | None) -> dict[str, Any] | None:
     if not token:
         return None
     with _connect() as conn:
@@ -172,7 +177,7 @@ def get_session_user(token: str | None) -> dict | None:
     if row is None:
         return None
     try:
-        expired = datetime.fromisoformat(row["expires_at"]) < datetime.now(timezone.utc)
+        expired = datetime.fromisoformat(row["expires_at"]) < datetime.now(UTC)
     except ValueError:
         expired = True
     if expired:
@@ -185,12 +190,11 @@ def revoke_session(token: str | None) -> None:
     if not token:
         return
     with _connect() as conn:
-        conn.execute(
-            "DELETE FROM sessions WHERE token_hash=?", (_token_hash(token),)
-        )
+        conn.execute("DELETE FROM sessions WHERE token_hash=?", (_token_hash(token),))
 
 
 # -- companies --------------------------------------------------------------
+
 
 def _slugify(name: str) -> str:
     # Case-preserving: existing evidence collections use mixed-case slugs.
@@ -198,36 +202,42 @@ def _slugify(name: str) -> str:
     return (base or "company")[:48]
 
 
-def create_company(owner_id: str, name: str) -> dict:
+def create_company(owner_id: str, name: str) -> dict[str, Any]:
     clean = (name or "").strip()
     if len(clean) < 2 or len(clean) > 80:
         raise ValueError("Company name must be 2-80 characters.")
     base = _slugify(clean)
     with _connect() as conn:
         slug, n = base, 2
-        while conn.execute(
-            "SELECT 1 FROM companies WHERE slug=?", (slug,)
-        ).fetchone():
+        while conn.execute("SELECT 1 FROM companies WHERE slug=?", (slug,)).fetchone():
             slug = f"{base}-{n}"
             n += 1
         company = {
-            "id": _new_id("cmp"), "name": clean, "slug": slug,
-            "owner_id": owner_id, "created_at": _now(),
+            "id": _new_id("cmp"),
+            "name": clean,
+            "slug": slug,
+            "owner_id": owner_id,
+            "created_at": _now(),
         }
         conn.execute(
             "INSERT INTO companies (id, name, slug, owner_id, created_at) "
             "VALUES (?, ?, ?, ?, ?)",
-            (company["id"], company["name"], company["slug"],
-             company["owner_id"], company["created_at"]),
+            (
+                company["id"],
+                company["name"],
+                company["slug"],
+                company["owner_id"],
+                company["created_at"],
+            ),
         )
     return public_company(company)
 
 
-def public_company(company: dict) -> dict:
+def public_company(company: dict[str, Any]) -> dict[str, Any]:
     return {"id": company["id"], "name": company["name"], "slug": company["slug"]}
 
 
-def list_companies(owner_id: str) -> list[dict]:
+def list_companies(owner_id: str) -> list[dict[str, Any]]:
     with _connect() as conn:
         conn.row_factory = sqlite3.Row
         rows = conn.execute(
@@ -237,12 +247,10 @@ def list_companies(owner_id: str) -> list[dict]:
     return [public_company(dict(r)) for r in rows]
 
 
-def get_company_by_slug(slug: str) -> dict | None:
+def get_company_by_slug(slug: str) -> dict[str, Any] | None:
     with _connect() as conn:
         conn.row_factory = sqlite3.Row
-        row = conn.execute(
-            "SELECT * FROM companies WHERE slug=?", (slug,)
-        ).fetchone()
+        row = conn.execute("SELECT * FROM companies WHERE slug=?", (slug,)).fetchone()
     return dict(row) if row else None
 
 

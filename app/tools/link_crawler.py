@@ -14,10 +14,11 @@ size cap, zip-slip-proof filenames, PDF-magic check on downloads.
 
 from __future__ import annotations
 
+import logging
 import os
 import re
 import shutil
-import tempfile
+import urllib.error
 import urllib.parse
 import urllib.request
 from pathlib import Path
@@ -27,6 +28,8 @@ import pymupdf as fitz
 
 from app.core.sanitize import sanitize_text
 from app.services.observability import observability
+
+logger = logging.getLogger(__name__)
 
 _PDF_MAGIC = b"%PDF"
 _FILENAME_BAD_CHARS_RE = re.compile(r"[^A-Za-z0-9._-]+")
@@ -61,6 +64,7 @@ def extract_pdf_links(pdf_path: str) -> dict[str, list[str]]:
             try:
                 links = page.get_links() or []
             except Exception:
+                logger.debug("link page scan skipped", exc_info=True)
                 continue
             for link in links:
                 if not isinstance(link, dict):
@@ -170,7 +174,7 @@ def _download_url(
     return "fetched", "fetched"
 
 
-def _copy_local_file(url: str, dest_path: str, max_bytes: int) -> tuple[bool, str]:
+def _copy_local_file(url: str, dest_path: str, max_bytes: int) -> tuple[str, str]:
     """Resolve file:// URLs against the local filesystem (offline-friendly)."""
     try:
         raw_path = urllib.parse.urlsplit(url).path
@@ -255,6 +259,7 @@ def crawl_tender_links(
         try:
             queue.append((Path(local).as_uri(), 1, os.path.basename(pdf_path)))
         except Exception:
+            logger.debug("local link skipped: %s", local, exc_info=True)
             continue
 
     docs_fetched = sum(1 for m in manifest if m["status"] == "fetched")
@@ -311,6 +316,7 @@ def crawl_tender_links(
                         try:
                             child_url = Path(child_file).as_uri()
                         except Exception:
+                            logger.debug("child link skipped: %s", child_file, exc_info=True)
                             continue
                         if _normalize_url(child_url) not in visited:
                             queue.append((child_url, depth + 1, filename))

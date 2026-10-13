@@ -28,6 +28,7 @@ import subprocess
 import time
 import uuid
 from pathlib import Path
+from typing import Any
 
 from app.core.config import settings
 
@@ -63,7 +64,7 @@ def _snap_dir() -> Path:
     return d
 
 
-def _load_all() -> list[dict]:
+def _load_all() -> list[dict[str, Any]]:
     p = _store_path()
     if not p.is_file():
         return []
@@ -74,7 +75,7 @@ def _load_all() -> list[dict]:
         return []
 
 
-def _save_all(items: list[dict]) -> None:
+def _save_all(items: list[dict[str, Any]]) -> None:
     _store_path().write_text(json.dumps(items, indent=1), encoding="utf-8")
 
 
@@ -101,7 +102,7 @@ def git_info() -> dict[str, str]:
     }
 
 
-def cli_status() -> dict:
+def cli_status() -> dict[str, Any]:
     """Which Entire binaries are installed (CLI / graph / brain)."""
     return {
         "entire_cli": shutil.which("entire") is not None,
@@ -124,11 +125,11 @@ def record_checkpoint(
     request: str = "",
     decisions: list[str] | None = None,
     changed_files: list[str] | None = None,
-    validation: dict | None = None,
+    validation: dict[str, Any] | None = None,
     run_id: str = "",
     git_commit: str = "",
     branch: str = "",
-) -> dict:
+) -> dict[str, Any]:
     """Persist one Entire-style checkpoint for a tender run."""
     items = _load_all()
     info = git_info()
@@ -153,7 +154,7 @@ def record_checkpoint(
     return entry
 
 
-def list_checkpoints(tender_id: str | None = None, limit: int = 50) -> list[dict]:
+def list_checkpoints(tender_id: str | None = None, limit: int = 50) -> list[dict[str, Any]]:
     items = _load_all()
     if tender_id:
         items = [c for c in items if c.get("tender_id") == tender_id]
@@ -161,11 +162,11 @@ def list_checkpoints(tender_id: str | None = None, limit: int = 50) -> list[dict
     return items[: max(1, limit)]
 
 
-def get_checkpoint(checkpoint_id: str) -> dict | None:
+def get_checkpoint(checkpoint_id: str) -> dict[str, Any] | None:
     return next((c for c in _load_all() if c.get("id") == checkpoint_id), None)
 
 
-def search_checkpoints(query: str, top_k: int = 5) -> list[dict]:
+def search_checkpoints(query: str, top_k: int = 5) -> list[dict[str, Any]]:
     """Keyword-overlap search over past checkpoints (offline agentic search).
 
     Falls back to literal substring matches when there is no token overlap.
@@ -176,7 +177,7 @@ def search_checkpoints(query: str, top_k: int = 5) -> list[dict]:
     if not items:
         return []
     qtok = _tokens(query)
-    scored: list[tuple[float, dict]] = []
+    scored: list[tuple[float, dict[str, Any]]] = []
     for c in items:
         hay = " ".join(
             [c.get("tender_id", ""), c.get("request", ""), *c.get("decisions", [])]
@@ -215,7 +216,7 @@ class EntireGraph:
     repo_root: Path = Path(".")
 
     @classmethod
-    def locate(cls, query: str, top_k: int = 5) -> list[dict]:
+    def locate(cls, query: str, top_k: int = 5) -> list[dict[str, Any]]:
         """Where is `query` implemented? Graph first, local fallback second."""
         if shutil.which("entire-graph") is not None:
             try:
@@ -238,7 +239,7 @@ class EntireGraph:
         ]
 
     @classmethod
-    def impact(cls, file_path: str) -> dict:
+    def impact(cls, file_path: str) -> dict[str, Any]:
         """What depends on `file_path`? (reverse edges of the import graph)."""
         snap = graph_snapshot(cls.repo_root)
         dependents = sorted(
@@ -248,7 +249,7 @@ class EntireGraph:
                 "count": len(dependents)}
 
     @classmethod
-    def stats(cls) -> dict:
+    def stats(cls) -> dict[str, Any]:
         """Token-saving estimate in the spirit of `entire graph stats`."""
         n_files = sum(1 for _ in Path(cls.repo_root, "app").rglob("*.py"))
         return {
@@ -259,13 +260,13 @@ class EntireGraph:
         }
 
 
-def _local_locate(query: str, top_k: int, repo_root: Path) -> list[dict]:
+def _local_locate(query: str, top_k: int, repo_root: Path) -> list[dict[str, Any]]:
     hits = _local_locate_phrase(query, top_k, repo_root)
     if hits:
         return hits
     # Phrase matched nothing: fall back to per-term search so a long
     # briefing query still surfaces the most relevant files.
-    seen: dict[tuple[str, int], dict] = {}
+    seen: dict[tuple[str, int], dict[str, Any]] = {}
     for term in sorted(_tokens(query)):
         for h in _local_locate_phrase(term, top_k, repo_root):
             seen.setdefault((h["file"], h["line"]), h)
@@ -274,9 +275,9 @@ def _local_locate(query: str, top_k: int, repo_root: Path) -> list[dict]:
     return list(seen.values())[:top_k]
 
 
-def _local_locate_phrase(query: str, top_k: int, repo_root: Path) -> list[dict]:
+def _local_locate_phrase(query: str, top_k: int, repo_root: Path) -> list[dict[str, Any]]:
     q = query.lower()
-    hits: list[dict] = []
+    hits: list[dict[str, Any]] = []
     for path in sorted(Path(repo_root, "app").rglob("*.py")):
         try:
             text = path.read_text(encoding="utf-8", errors="ignore")
@@ -294,14 +295,14 @@ def _local_locate_phrase(query: str, top_k: int, repo_root: Path) -> list[dict]:
         if len(hits) >= top_k * 3:
             break
     # Prefer symbol definitions (def/class) mentioning the query.
-    def _rank(h: dict) -> int:
+    def _rank(h: dict[str, Any]) -> int:
         return 0 if re.search(r"(def |class ).*", h["preview"]) else 1
 
     hits.sort(key=_rank)
     return hits[:top_k]
 
 
-def graph_snapshot(repo_root: Path | str = ".") -> dict:
+def graph_snapshot(repo_root: Path | str = ".") -> dict[str, Any]:
     """File -> local-imports map + content hashes (for drift detection)."""
     root = Path(repo_root)
     imports: dict[str, list[str]] = {}
@@ -332,14 +333,14 @@ def graph_snapshot(repo_root: Path | str = ".") -> dict:
             "files": len(imports), "created_at": time.time()}
 
 
-def save_snapshot(label: str, repo_root: Path | str = ".") -> dict:
+def save_snapshot(label: str, repo_root: Path | str = ".") -> dict[str, Any]:
     snap = graph_snapshot(repo_root)
     path = _snap_dir() / f"{label}.json"
     path.write_text(json.dumps(snap, indent=1), encoding="utf-8")
     return {"label": label, "path": str(path), **snap}
 
 
-def graph_diff(before: dict, after: dict) -> dict:
+def graph_diff(before: dict[str, Any], after: dict[str, Any]) -> dict[str, Any]:
     """Compare two Graph snapshots: new deps, removed deps, changed files."""
     b_imp, a_imp = before.get("imports", {}), after.get("imports", {})
     b_h, a_h = before.get("hashes", {}), after.get("hashes", {})
@@ -382,7 +383,7 @@ class EntireBrain:
 
 
 # ------------------------------------------------------- Showcase tools ---
-def build_briefing(query: str, top_k: int = 3) -> dict:
+def build_briefing(query: str, top_k: int = 3) -> dict[str, Any]:
     """'Before you build' assistant: past attempts + reusable code."""
     past = search_checkpoints(query, top_k=top_k)
     code = EntireGraph.locate(query, top_k=top_k)
@@ -418,7 +419,7 @@ def build_briefing(query: str, top_k: int = 3) -> dict:
 
 
 def review_change(request: str, changed_files: list[str],
-                  decisions: list[str], checkpoint_id: str = "") -> dict:
+                  decisions: list[str], checkpoint_id: str = "") -> dict[str, Any]:
     """Reviewer that checks intent: request vs. committed change."""
     flags: list[str] = []
     req_tok = _tokens(request)
@@ -446,7 +447,7 @@ def review_change(request: str, changed_files: list[str],
             "related_checkpoints": [c["id"] for c in past]}
 
 
-def checkpoint_demo(checkpoint_id: str) -> dict:
+def checkpoint_demo(checkpoint_id: str) -> dict[str, Any]:
     """Checkpoint-to-demo generator: problem, decisions, change, validation."""
     c = get_checkpoint(checkpoint_id)
     if c is None:
@@ -469,13 +470,13 @@ def checkpoint_demo(checkpoint_id: str) -> dict:
     return {"checkpoint": c, "demo_md": "\n".join(md)}
 
 
-def scout_tests(checkpoint_id: str = "", changed_files: list[str] | None = None) -> dict:
+def scout_tests(checkpoint_id: str = "", changed_files: list[str] | None = None) -> dict[str, Any]:
     """Regression test scout: behaviors needing tests from change + Graph."""
     files = list(changed_files or [])
     c = get_checkpoint(checkpoint_id) if checkpoint_id else None
     if c is not None:
         files.extend(f for f in c.get("changed_files", []) if f not in files)
-    suggestions: list[dict] = []
+    suggestions: list[dict[str, Any]] = []
     for f in files[:10]:
         impact = EntireGraph.impact(f)
         suggestions.append({

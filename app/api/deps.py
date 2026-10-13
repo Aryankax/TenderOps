@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from fastapi import Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
@@ -26,7 +28,7 @@ def _extract_token(
 def get_current_user(
     request: Request,
     creds: HTTPAuthorizationCredentials | None = Depends(_bearer),
-) -> dict:
+) -> dict[str, Any]:
     if not getattr(settings, "AUTH_REQUIRED", True):
         return {"id": "local", "username": "local"}
     user = auth_store.get_session_user(_extract_token(request, creds))
@@ -39,7 +41,7 @@ def get_current_user(
     return user
 
 
-def require_company_access(user: dict, slug: str) -> str:
+def require_company_access(user: dict[str, Any], slug: str) -> str:
     """Company isolation boundary: 403 unless the caller owns this slug."""
     from app.agents.evidence_agent.retrieval import sanitize_company_id
 

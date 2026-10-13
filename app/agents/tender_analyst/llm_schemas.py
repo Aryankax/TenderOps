@@ -1134,13 +1134,33 @@ def _simple_to_canonical(d: dict[str, Any]) -> dict[str, Any]:
 # document asks: a date never requires proof from the bidder. Veto words
 # are document-demand verbs/nouns — anything carrying them is a real ask.
 _DOC_DEMAND_MARKERS = (
-    "upload", "submit", "enclose", "furnish", "provide", "certificate",
-    "evidence", "document", "attested", "self-certified",
+    "upload",
+    "submit",
+    "enclose",
+    "furnish",
+    "provide",
+    "certificate",
+    "evidence",
+    "document",
+    "attested",
+    "self-certified",
 )
 _DETAIL_MARKERS = (
-    "bid end", "bid open", "opening date", "end date", "deadline",
-    "reference", "tender no", "tender number", "bid no", "tender id",
-    "estimated", "validity", "published", "bid details", "version",
+    "bid end",
+    "bid open",
+    "opening date",
+    "end date",
+    "deadline",
+    "reference",
+    "tender no",
+    "tender number",
+    "bid no",
+    "tender id",
+    "estimated",
+    "validity",
+    "published",
+    "bid details",
+    "version",
 )
 _ANY_DATE_RE = re.compile(
     r"\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\d{4}-\d{1,2}-\d{1,2}|"
@@ -1174,9 +1194,7 @@ def is_proof_free_detail(req: dict[str, Any]) -> bool:
     """
     if _enum_value(req.get("semantic_type")) != "INFORMATIONAL":
         return False
-    if req.get("required_evidence"):
-        return False
-    return True
+    return not req.get("required_evidence")
 
 
 # ---------------------------------------------------------------------------
@@ -1506,9 +1524,7 @@ def normalize_requirement_list(
         # drop them so they never reach evidence mapping or blockers.
         if is_proof_free_detail(norm):
             dropped_details += 1
-            logger.debug(
-                "Dropping proof-free tender detail: %r", norm.get("title")
-            )
+            logger.debug("Dropping proof-free tender detail: %r", norm.get("title"))
             continue
         out.append(norm)
     if dropped_details:

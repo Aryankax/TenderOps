@@ -5,12 +5,22 @@ import shutil
 import tempfile
 import zipfile
 from pathlib import Path
+from typing import Any
 
 import neatlogs
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    Request,
+    UploadFile,
+)
 
-from app.agents.evidence_agent import retrieval
 from app.agents.compliance_agent.service import ComplianceService
+from app.agents.evidence_agent import retrieval
 from app.api.deps import get_current_user, require_company_access
 from app.core.config import settings
 from app.models.pipeline import PipelineResult
@@ -56,7 +66,7 @@ async def run_pipeline(
         default="sample",
         description="Company profile: evidence is searched strictly inside this company's index.",
     ),
-    user: dict = Depends(get_current_user),
+    user: dict[str, Any] = Depends(get_current_user),
 ):
     """P1+P2+P3 wired: analyze, map evidence, assess compliance/blockers."""
     company_id = require_company_access(user, company_id)
@@ -72,9 +82,8 @@ async def run_pipeline(
                 f"{settings.MAX_UPLOAD_SIZE_MB}MB.",
             )
         try:
-            from app.orchestrator.service import OrchestratorService
-
             from app.agents.evidence_agent.retrieval import sanitize_company_id
+            from app.orchestrator.service import OrchestratorService
 
             # Offload the minutes-long blocking LangGraph run to a worker
             # thread so the uvicorn event loop stays free for /api/events/stream
@@ -107,6 +116,7 @@ async def run_pipeline(
         if os.path.exists(temp_path):
             os.remove(temp_path)
 
+
 @router.post(
     "/resume",
     response_model=PipelineResult,
@@ -135,10 +145,9 @@ async def resume_pipeline(
         description="JSON {blocker_id: [uploaded filenames]}: each blocker's "
         "requirements are re-checked ONLY against its own fix files.",
     ),
-    user: dict = Depends(get_current_user),
+    user: dict[str, Any] = Depends(get_current_user),
 ):
-    '''P3 resume: append fix documents, re-run affected checks, reassess.'''
-    from app.models.tender import TenderAnalysisResult
+    """P3 resume: append fix documents, re-run affected checks, reassess."""
 
     company_id = require_company_access(user, company_id)
 
@@ -162,9 +171,7 @@ async def resume_pipeline(
             temp_paths.append(path)
             reason = _light_validate_pdf(path)
             if reason:
-                raise HTTPException(
-                    status_code=400, detail=f"{name}: {reason}."
-                )
+                raise HTTPException(status_code=400, detail=f"{name}: {reason}.")
             new_docs.append({"path": path, "name": name})
             staged.append((name, name))
         if isinstance(zip_file, str) or (
@@ -180,9 +187,7 @@ async def resume_pipeline(
             for entry in _extract_pdfs_from_zip(zip_file, temp_paths):
                 if "path" in entry:
                     new_docs.append({"path": entry["path"], "name": entry["name"]})
-                    staged.append(
-                        (entry.get("original", entry["name"]), entry["name"])
-                    )
+                    staged.append((entry.get("original", entry["name"]), entry["name"]))
         try:
             from app.agents.evidence_agent.retrieval import sanitize_company_id
 
@@ -208,18 +213,14 @@ async def resume_pipeline(
         except HTTPException:
             raise
         except RuntimeError as e:
-            raise HTTPException(
-                status_code=500, detail=f"Resume failed: {e!s}"[:1000]
-            )
+            raise HTTPException(status_code=500, detail=f"Resume failed: {e!s}"[:1000])
         except Exception as e:  # noqa: BLE001 — surface real cause, not opaque 500
             import logging as _logging
 
             _logging.getLogger(__name__).exception(
                 "resume failed for tender %s", tender_id
             )
-            raise HTTPException(
-                status_code=500, detail=f"Resume failed: {e!s}"[:1000]
-            )
+            raise HTTPException(status_code=500, detail=f"Resume failed: {e!s}"[:1000])
         analysis = resumed["analysis"]
         compliance = resumed["compliance"]
         return PipelineResult(
@@ -230,9 +231,7 @@ async def resume_pipeline(
             package=resumed.get("package"),
             verification=resumed.get("verification"),
             pipeline_status=(
-                "PAUSED_ON_BLOCKERS"
-                if compliance.decision == "PAUSE"
-                else "COMPLETED"
+                "PAUSED_ON_BLOCKERS" if compliance.decision == "PAUSE" else "COMPLETED"
             ),
             checkpoint_path=ComplianceService.checkpoint_path(analysis.tender_id),
         )
@@ -269,7 +268,7 @@ async def resume_job(
         description="JSON {blocker_id: [uploaded filenames]}: each blocker's "
         "requirements are re-checked ONLY against its own fix files.",
     ),
-    user: dict = Depends(get_current_user),
+    user: dict[str, Any] = Depends(get_current_user),
 ):
     """Enqueue a resume; fix docs + waivers are picked up by the worker."""
     company_id = require_company_access(user, company_id)
@@ -303,9 +302,7 @@ async def resume_job(
             temp_paths.append(path)
             reason = _light_validate_pdf(path)
             if reason:
-                raise HTTPException(
-                    status_code=400, detail=f"{name}: {reason}."
-                )
+                raise HTTPException(status_code=400, detail=f"{name}: {reason}.")
             staged.append({"path": path, "name": name, "original": name})
         if isinstance(zip_file, str) or (
             zip_file is not None
@@ -319,8 +316,13 @@ async def resume_job(
                 )
             for entry in _extract_pdfs_from_zip(zip_file, temp_paths):
                 if "path" in entry:
-                    staged.append({"path": entry["path"], "name": entry["name"],
-                                   "original": entry.get("original", entry["name"])})
+                    staged.append(
+                        {
+                            "path": entry["path"],
+                            "name": entry["name"],
+                            "original": entry.get("original", entry["name"]),
+                        }
+                    )
         job_id = job_store.create_resume_job(tender_id, company_id)
         inbox = job_store.resume_upload_dir(job_id)
         staged_pairs: list[tuple[str, str]] = []
@@ -337,7 +339,9 @@ async def resume_job(
                 temp_paths.remove(doc["path"])
             staged_pairs.append((doc["original"], os.path.basename(dest)))
         scoped = _translate_fix_map(_parse_fix_map(fix_map), staged_pairs)
-        job_store.submit_resume_job(job_id, tender_id, company_id, waived_ids, scoped or None)
+        job_store.submit_resume_job(
+            job_id, tender_id, company_id, waived_ids, scoped or None
+        )
         return {"job_id": job_id, "status": "QUEUED", "tender_id": tender_id}
     finally:
         for path in temp_paths:
@@ -357,7 +361,7 @@ async def resume_job(
 )
 async def list_evidence_index(
     company_id: str = Query(default="sample"),
-    user: dict = Depends(get_current_user),
+    user: dict[str, Any] = Depends(get_current_user),
 ):
     company_id = require_company_access(user, company_id)
     return retrieval.list_indexed_documents(company_id)
@@ -400,7 +404,7 @@ async def list_evidence_index(
     },
 )
 async def rebuild_evidence_index(
-    request: Request, user: dict = Depends(get_current_user)
+    request: Request, user: dict[str, Any] = Depends(get_current_user)
 ):
     """Replace the company evidence index with uploaded PDFs."""
     try:
@@ -476,7 +480,7 @@ def _is_upload(value) -> bool:
     )
 
 
-def _coerce_uploads(values) -> list:
+def _coerce_uploads(values: Any) -> list[Any]:
     """Drop empty Swagger submissions (blank strings / nameless empty parts)."""
     out = []
     for value in values or []:
@@ -497,13 +501,9 @@ def _parse_fix_map(raw: str | None) -> dict[str, list[str]]:
 
         data = _json.loads(str(raw))
     except Exception:
-        raise HTTPException(
-            status_code=400, detail="fix_map must be a JSON object."
-        )
+        raise HTTPException(status_code=400, detail="fix_map must be a JSON object.")
     if not isinstance(data, dict):
-        raise HTTPException(
-            status_code=400, detail="fix_map must be a JSON object."
-        )
+        raise HTTPException(status_code=400, detail="fix_map must be a JSON object.")
     out: dict[str, list[str]] = {}
     for key, value in data.items():
         names = value if isinstance(value, list) else [value]
@@ -581,7 +581,9 @@ def _extract_pdfs_from_zip(
     try:
         archive = zipfile.ZipFile(zip_path)
     except zipfile.BadZipFile:
-        raise HTTPException(status_code=400, detail="zip_file is not a valid zip archive.")
+        raise HTTPException(
+            status_code=400, detail="zip_file is not a valid zip archive."
+        )
     entries: list[dict[str, str]] = []
     with archive:
         members = [m for m in archive.infolist() if not m.is_dir()]
@@ -604,7 +606,9 @@ def _extract_pdfs_from_zip(
                 or ".." in Path(member.filename).parts
                 or Path(member.filename).is_absolute()
             ):
-                entries.append({"name": member.filename or "?", "reason": "unsafe path"})
+                entries.append(
+                    {"name": member.filename or "?", "reason": "unsafe path"}
+                )
                 continue
             if not name.lower().endswith(".pdf"):
                 entries.append({"name": name, "reason": "not a PDF"})
@@ -625,7 +629,10 @@ def _extract_pdfs_from_zip(
                 entries.append({"name": name, "reason": reason})
                 continue
             entries.append(
-                {"path": temp_path, "name": name,
-                 "original": Path(member.filename).name.strip()}
+                {
+                    "path": temp_path,
+                    "name": name,
+                    "original": Path(member.filename).name.strip(),
+                }
             )
     return entries
