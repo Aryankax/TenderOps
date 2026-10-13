@@ -1,11 +1,11 @@
-from typing import Any
 import re
+from typing import Any
 
 from app.agents.evidence_agent.llm_schemas import LLMMappingList, normalize_mapping
-from app.agents.evidence_agent.verification import verify_numeric_requirement
 from app.agents.evidence_agent.prompts import EVIDENCE_MAPPING_PROMPT
 from app.agents.evidence_agent.retrieval import query_evidence
 from app.agents.evidence_agent.state import EvidenceAgentState
+from app.agents.evidence_agent.verification import verify_numeric_requirement
 
 # Shared tolerant structured-output caller (provider chain + retries).
 # Imported from the analyst agent to avoid duplicating the logic.
@@ -57,7 +57,9 @@ def _merge_hits(hit_lists: list[list[dict[str, Any]]]) -> list[dict[str, Any]]:
                 merged[key].get("score", 0) or 0
             ):
                 merged[key] = h
-    return sorted(merged.values(), key=lambda h: float(h.get("score", 0) or 0), reverse=True)
+    return sorted(
+        merged.values(), key=lambda h: float(h.get("score", 0) or 0), reverse=True
+    )
 
 
 def _select_documents(
@@ -66,9 +68,7 @@ def _select_documents(
     """Rank candidate documents: best hit score, then hit count, then a
     filename bonus when the file is literally named for the topic
     ("Turnover-Cert.pdf" for a turnover requirement). Explainable, no LLM."""
-    title_words = {
-        t for t in re.findall(r"[a-z0-9]+", title.lower()) if len(t) > 3
-    }
+    title_words = {t for t in re.findall(r"[a-z0-9]+", title.lower()) if len(t) > 3}
     scored: dict[str, list[float]] = {}
     for h in hits:
         doc = str(h.get("document_name", "?"))
@@ -81,9 +81,9 @@ def _select_documents(
         entry[1] += 1
     ranked = []
     for doc, (best, count) in scored.items():
-        bonus = 0.2 if title_words and any(
-            w in doc.lower() for w in title_words
-        ) else 0.0
+        bonus = (
+            0.2 if title_words and any(w in doc.lower() for w in title_words) else 0.0
+        )
         ranked.append((best + 0.05 * count + bonus, doc))
     ranked.sort(reverse=True)
     return [doc for _, doc in ranked[: max(1, top_docs)]]
@@ -98,7 +98,9 @@ def retrieve_evidence_node(state: EvidenceAgentState) -> EvidenceAgentState:
             "retrieve_scoped", tender_id=tender_id, documents=scoped_docs
         )
     else:
-        observability.log_event("node_start", node="retrieve_evidence", tender_id=tender_id)
+        observability.log_event(
+            "node_start", node="retrieve_evidence", tender_id=tender_id
+        )
     retrieved: dict[str, list[dict[str, Any]]] = {}
     width = max(1, settings.EVIDENCE_RETRIEVE_WIDTH)
     cap = max(1, settings.EVIDENCE_MAX_EXCERPTS)
@@ -124,7 +126,10 @@ def retrieve_evidence_node(state: EvidenceAgentState) -> EvidenceAgentState:
                     merged = _merge_hits(
                         [
                             query_evidence(
-                                q, profile, top_k=3, document_name=doc,
+                                q,
+                                profile,
+                                top_k=3,
+                                document_name=doc,
                                 bypass_gates=True,
                             )
                             for q in queries
@@ -132,8 +137,10 @@ def retrieve_evidence_node(state: EvidenceAgentState) -> EvidenceAgentState:
                         ]
                     )[:3]
                     observability.log_event(
-                        "retrieve_scoped_fallback", tender_id=tender_id,
-                        requirement_id=rid, documents=scoped_docs,
+                        "retrieve_scoped_fallback",
+                        tender_id=tender_id,
+                        requirement_id=rid,
+                        documents=scoped_docs,
                         fallback_chunks=len(merged),
                     )
             else:
@@ -151,7 +158,9 @@ def retrieve_evidence_node(state: EvidenceAgentState) -> EvidenceAgentState:
             }
             for doc in _select_documents(merged, str(req.get("title", ""))):
                 for h in query_evidence(
-                    queries[0], profile, top_k=settings.EVIDENCE_TOP_K,
+                    queries[0],
+                    profile,
+                    top_k=settings.EVIDENCE_TOP_K,
                     document_name=doc,
                 ):
                     key = (
@@ -161,9 +170,7 @@ def retrieve_evidence_node(state: EvidenceAgentState) -> EvidenceAgentState:
                     if key not in seen:
                         seen.add(key)
                         enriched.append(h)
-            enriched.sort(
-                key=lambda h: float(h.get("score", 0) or 0), reverse=True
-            )
+            enriched.sort(key=lambda h: float(h.get("score", 0) or 0), reverse=True)
             retrieved[rid] = enriched[:cap]
         except Exception as e:
             observability.log_error("retrieval_failed", e, requirement_id=rid)
@@ -283,7 +290,10 @@ def map_evidence_node(state: EvidenceAgentState) -> EvidenceAgentState:
                 rid = str(req.get("requirement_id", "?"))
                 items.append(
                     normalize_mapping(
-                        by_id.get(rid, {}), rid, retrieved.get(rid, []), titles.get(rid),
+                        by_id.get(rid, {}),
+                        rid,
+                        retrieved.get(rid, []),
+                        titles.get(rid),
                         requirement=req,
                     )
                 )
@@ -296,8 +306,13 @@ def map_evidence_node(state: EvidenceAgentState) -> EvidenceAgentState:
             for req in batch:
                 rid = str(req.get("requirement_id", "?"))
                 items.append(
-                    normalize_mapping({}, rid, retrieved.get(rid, []), titles.get(rid),
-                                      requirement=req)
+                    normalize_mapping(
+                        {},
+                        rid,
+                        retrieved.get(rid, []),
+                        titles.get(rid),
+                        requirement=req,
+                    )
                 )
 
     # Preserve original requirement order.

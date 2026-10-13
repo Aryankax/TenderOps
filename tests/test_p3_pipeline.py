@@ -191,10 +191,13 @@ def test_analyze_tender_multi_doc_attribution(monkeypatch, tmp_path):
             return LLMMetadata(tender_title="Test tender")
         # One requirement per chunk, echoing the owning document. The main
         # chunk references the ATC so suppression is genuinely exercised.
+        # Wording is realistic: the exemption keeps its relief marker and the
+        # deadline its obligation wording, so the proof-free-detail filter
+        # (INFORMATIONAL with no evidence) keeps both, as production would.
         if "atc.pdf" in prompt:
-            text = "ATC special condition"
+            text = "ATC special condition: EMD exempt for MSE bidders"
         else:
-            text = "Submission deadline 30 Nov. See ATC document for terms."
+            text = "Bidder must submit the bid before 30 November 2026. See ATC document attached."
         return LLMSimpleRequirementList(requirements=[{
             "requirement_id": "R1", "category": "OTHER", "title": text,
             "original_text": text, "mandatory": True, "page": 1, "section": "S",

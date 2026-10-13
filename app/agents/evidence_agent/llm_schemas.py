@@ -12,11 +12,11 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic.aliases import AliasChoices
 
-from app.models.evidence import RequirementEvidence
 from app.agents.evidence_agent.verification import (
     audit_numeric_claim,
     coerce_computed,
 )
+from app.models.evidence import RequirementEvidence
 
 
 class LenientBase(BaseModel):

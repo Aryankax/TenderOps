@@ -1,6 +1,6 @@
-from typing import Any
+from typing import Any, NotRequired
 
-from typing_extensions import NotRequired, TypedDict
+from typing_extensions import TypedDict
 
 
 class EvidenceAgentState(TypedDict):

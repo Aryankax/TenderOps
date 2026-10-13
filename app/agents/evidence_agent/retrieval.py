@@ -36,6 +36,7 @@ def _require_chromadb():
         ) from e
     return chromadb
 
+
 _OVERLAP_STOPWORDS = frozenset(
     {
         "the",
@@ -165,7 +166,9 @@ def index_company_docs(
                 if stale and stale.get("ids"):
                     collection.delete(ids=stale["ids"])
         except Exception as e:
-            observability.log_event("evidence_index_reindex_skipped", reason=str(e)[:200])
+            observability.log_event(
+                "evidence_index_reindex_skipped", reason=str(e)[:200]
+            )
 
     ids, documents, metadatas = [], [], []
     doc_count = 0
@@ -220,10 +223,14 @@ def list_indexed_documents(
     try:
         stored = collection.get(include=["metadatas"])
     except Exception:
-        return {"company_profile_id": sanitize_company_id(company_profile_id),
-                "documents": 0, "chunks": 0, "files": []}
+        return {
+            "company_profile_id": sanitize_company_id(company_profile_id),
+            "documents": 0,
+            "chunks": 0,
+            "files": [],
+        }
     by_doc: dict[str, dict[str, Any]] = {}
-    for meta in (stored.get("metadatas") or []):
+    for meta in stored.get("metadatas") or []:
         name = str((meta or {}).get("document_name", "unknown"))
         entry = by_doc.setdefault(name, {"name": name, "chunks": 0, "pages": set()})
         entry["chunks"] += 1

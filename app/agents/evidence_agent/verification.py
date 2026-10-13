@@ -17,11 +17,9 @@ Design rules:
 
 from __future__ import annotations
 
-import math
 import re
 from typing import Any
 
-from app.agents.evidence_agent.retrieval import _content_tokens
 from app.agents.tender_analyst.llm_schemas import (
     _enum_value,
     _extract_number,
@@ -32,9 +30,12 @@ from app.models.evidence import RequirementEvidence
 # Requirement classes with no company-side satisfaction target. Exemptions
 # are included defensively: post-reframe they carry value None anyway, but
 # a relief must never be judged as an obligation even if a number survives.
-_NON_VERIFIABLE_SEMANTICS = frozenset({"INFORMATIONAL", "BUYER_DISCRETION", "EXEMPTION"})
+_NON_VERIFIABLE_SEMANTICS = frozenset(
+    {"INFORMATIONAL", "BUYER_DISCRETION", "EXEMPTION"}
+)
 
-_UNIT_ALIASES = {    "rs": "inr",
+_UNIT_ALIASES = {
+    "rs": "inr",
     "rs.": "inr",
     "inr": "inr",
     "inr.": "inr",
@@ -64,13 +65,30 @@ _UNIT_AFTER_RE = re.compile(
     re.IGNORECASE,
 )
 _SCALE_WORDS = {
-    "lakh": 1e5, "lakhs": 1e5, "lac": 1e5, "lacs": 1e5,
-    "crore": 1e7, "crores": 1e7,
+    "lakh": 1e5,
+    "lakhs": 1e5,
+    "lac": 1e5,
+    "lacs": 1e5,
+    "crore": 1e7,
+    "crores": 1e7,
 }
-_MONEY_WORDS = frozenset({
-    "lakh", "lakhs", "lac", "lacs", "crore", "crores",
-    "inr", "inr.", "rs", "rs.", "rupee", "rupees", "\u20b9",
-})
+_MONEY_WORDS = frozenset(
+    {
+        "lakh",
+        "lakhs",
+        "lac",
+        "lacs",
+        "crore",
+        "crores",
+        "inr",
+        "inr.",
+        "rs",
+        "rs.",
+        "rupee",
+        "rupees",
+        "\u20b9",
+    }
+)
 # Currency marker BEFORE a bare number ("Rs. 9874275").
 _MONEY_BEFORE_RE = re.compile(r"(rs\.?|inr|rupees?|\u20b9)\s*\.?\s*$", re.IGNORECASE)
 
@@ -156,20 +174,41 @@ def _meets(operator: str, company: float, required: float) -> bool | None:
 
 def _topic_words(req: dict[str, Any]) -> set[str]:
     return _stem_tokens(
-        _topic_tokens(
-            f"{req.get('title', '')} {req.get('normalized_description', '')}"
-        )
+        _topic_tokens(f"{req.get('title', '')} {req.get('normalized_description', '')}")
     )
 
 
 # Retrieval's stopword list drops domain nouns ("bid", "turnover" context)
 # that are noise across documents but signal within one excerpt — so topic
 # matching uses this minimal glue-word set instead.
-_TOPIC_STOPWORDS = frozenset({
-    "the", "a", "an", "of", "for", "and", "to", "in", "on", "by",
-    "with", "from", "is", "are", "was", "as", "at", "or", "that",
-    "this", "it", "be", "an", "no", "not",
-})
+_TOPIC_STOPWORDS = frozenset(
+    {
+        "the",
+        "a",
+        "an",
+        "of",
+        "for",
+        "and",
+        "to",
+        "in",
+        "on",
+        "by",
+        "with",
+        "from",
+        "is",
+        "are",
+        "was",
+        "as",
+        "at",
+        "or",
+        "that",
+        "this",
+        "it",
+        "be",
+        "no",
+        "not",
+    }
+)
 
 
 def _topic_tokens(text: str) -> set[str]:
@@ -263,7 +302,9 @@ def verify_numeric_requirement(
         return None
     hit, fig = best["hit"], best["fig"]
     company_str = f"{fmt_number(fig['value'])} {fig['unit']}".strip()
-    required_str = f"{operator} {fmt_number(required)} {threshold.get('unit', '')}".strip()
+    required_str = (
+        f"{operator} {fmt_number(required)} {threshold.get('unit', '')}".strip()
+    )
     source = f"{hit.get('document_name', '?')} p.{hit.get('page_number', '?')}"
     # Confidence blends engine certainty with retrieval quality: a perfect
     # reading off a 0.31-score hit is not a 0.9.

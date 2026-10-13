@@ -1,0 +1,53 @@
+TenderOps — What Phase 2 (Evidence Agent) sends to Phase 3 (Compliance Engine)
+==============================================================================
+
+P2 outputs one EvidenceMap per tender (see app/models/evidence.py).
+P3 joins it with P1's TenderAnalysisResult on requirement_id, then decides
+each requirement deterministically (plain Python, no LLM).
+
+PER-REQUIREMENT HANDOFF (RequirementEvidence)
+---------------------------------------------
+1. requirement_id ......... Join key to P1's requirement (threshold,
+                            mandatory flag, category, source refs).
+   requirement_title ...... Human-readable requirement name, copied from P1
+                            so P3/UI never need a join-back for display.
+2. status ................. satisfied | partial | missing | needs_review.
+                            P3 usage: `missing` -> automatic blocker;
+                            anything else -> verify, don't trust.
+3. confidence ............. 0.0 - 1.0. P3 usage: below P3's bar, escalate
+                            to needs_review no matter what status says.
+4. hits[] ................. Source evidence, each with document_name,
+                            page_number, verbatim excerpt, retrieval score.
+                            P3 usage: audit trail — every verdict cites these.
+5. computed_value/unit .... ONE figure copied verbatim from the evidence
+                            (or null). P3 usage: raw input to its own math.
+                            NEVER pre-compared, NEVER unit-converted.
+6. notes .................. One-sentence rationale for humans/matrix UI.
+
+TOP-LEVEL FIELDS
+----------------
+- tender_id, company_profile_id ... run identity.
+- unmapped_requirements ........... IDs with zero retrieved hits.
+                                    P3 usage: automatic blockers.
+- warnings ........................ retrieval/LLM outages during mapping.
+                                    P3 rule: unproven is NEVER a pass.
+
+THE CORE CONTRACT (worked example: turnover R4)
+-----------------------------------------------
+- P1 says:  "R4 needs average annual turnover >= 115,637,000 INR (mandatory)."
+- P2 says:  "Found audited figures averaging ~12.03 Cr (financials.pdf p.1,
+             excerpt attached). Status: partial. Sufficiency deferred."
+- P3 does:  avg(11.2, 12.1, 12.8 Cr) = 12.03 Cr >= 11.56 Cr -> SATISFIED,
+            citing R4 + financials.pdf p.1.
+
+Same shape for experience: P2 reports "2 certs (21/22 Cr), option counts
+unverified"; P3 checks them against the 3x40% / 2x50% / 1x80% rules itself.
+
+DESIGN RULES P3 CAN RELY ON
+---------------------------
+a) P2 never converts units (lakh/crore/INR) and never compares figures to
+   thresholds — all numeric judgment lives in P3.
+b) Every status except well-evidenced `satisfied` leans conservative;
+   ambiguity lands in `partial`/`needs_review` with the reason in notes.
+c) Anything P2 could not prove arrives explicitly marked (missing /
+   unmapped / warnings) — so P3's blocker queue is complete by construction.

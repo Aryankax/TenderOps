@@ -1,0 +1,1194 @@
+{
+  "tender_id": "4cb5e02b-e8fa-46ad-b3b4-48d93eee6810",
+  "company_profile_id": "sample",
+  "items": [
+    {
+      "requirement_id": "R1",
+      "requirement_title": "Bid end date and time",
+      "status": "missing",
+      "confidence": 0.0,
+      "hits": [],
+      "computed_value": null,
+      "computed_unit": null,
+      "notes": "No company evidence retrieved."
+    },
+    {
+      "requirement_id": "R2",
+      "requirement_title": "Bid opening date and time",
+      "status": "missing",
+      "confidence": 0.0,
+      "hits": [
+        {
+          "document_name": "acme-completion-cert-railways.pdf",
+          "page_number": 1,
+          "excerpt": "COMPLETION CERTIFICATE ? Indian Railways, Centre for Railway Information Systems\nM/s Acme Infotech Pvt Ltd has successfully completed the work \"Development and maintenance of\npassenger information portal\" for a contract value of INR 21,00,00,000 (21 crore). Period: April\n2022 to March 2024. Performance: Satisfactory. Issued by the Office of the General Manager,\nCRIS, New Delhi.",
+          "score": 0.268,
+          "supports": "supports"
+        },
+        {
+          "document_name": "acme-iso-certificates.pdf",
+          "page_number": 1,
+          "excerpt": "ISO 9001:2015 Certificate No. QMS-22114 ? Acme Infotech Pvt Ltd. Scope: Design, development\nand maintenance of IT systems. Valid from 01-04-2024 to 31-03-2027.\nISO/IEC 27001:2022 Certificate No. ISMS-08831 ? Acme Infotech Pvt Ltd. Scope: Information\nsecurity management for software services. Valid from 01-04-2024 to 31-03-2027.",
+          "score": 0.264,
+          "supports": "supports"
+        }
+      ],
+      "computed_value": null,
+      "computed_unit": null,
+      "notes": "No excerpt contains bid opening date and time information; provided excerpts relate to completion certificates and ISO certifications."
+    },
+    {
+      "requirement_id": "R3",
+      "requirement_title": "Bid offer validity period",
+      "status": "missing",
+      "confidence": 0.0,
+      "hits": [
+        {
+          "document_name": "acme-iso-certificates.pdf",
+          "page_number": 1,
+          "excerpt": "ISO 9001:2015 Certificate No. QMS-22114 ? Acme Infotech Pvt Ltd. Scope: Design, development\nand maintenance of IT systems. Valid from 01-04-2024 to 31-03-2027.\nISO/IEC 27001:2022 Certificate No. ISMS-08831 ? Acme Infotech Pvt Ltd. Scope: Information\nsecurity management for software services. Valid from 01-04-2024 to 31-03-2027.",
+          "score": 0.281,
+          "supports": "supports"
+        },
+        {
+          "document_name": "acme-completion-cert-railways.pdf",
+          "page_number": 1,
+          "excerpt": "COMPLETION CERTIFICATE ? Indian Railways, Centre for Railway Information Systems\nM/s Acme Infotech Pvt Ltd has successfully completed the work \"Development and maintenance of\npassenger information portal\" for a contract value of INR 21,00,00,000 (21 crore). Period: April\n2022 to March 2024. Performance: Satisfactory. Issued by the Office of the General Manager,\nCRIS, New Delhi.",
+          "score": 0.274,
+          "supports": "supports"
+        },
+        {
+          "document_name": "acme-completion-cert-psu-bank.pdf",
+          "page_number": 1,
+          "excerpt": "COMPLETION CERTIFICATE ? Nationalized Bank IT Division\nM/s Acme Infotech Pvt Ltd has successfully completed \"Core banking helpdesk and facility\nmanagement services\" for a contract value of INR 22,00,00,000 (22 crore). Period: June 2021 to\nMay 2024. Performance: Good. Issued by the Chief Manager (IT), Mumbai.",
+          "score": 0.235,
+          "supports": "supports"
+        }
+      ],
+      "computed_value": null,
+      "computed_unit": null,
+      "notes": "No excerpt specifies bid offer validity period; provided excerpts relate to ISO certificate validity periods and project completion dates, not bid validity."
+    },
+    {
+      "requirement_id": "R4",
+      "requirement_title": "Minimum average annual turnover",
+      "status": "partial",
+      "confidence": 0.85,
+      "hits": [
+        {
+          "document_name": "acme-financials-fy23-25.pdf",
+          "page_number": 1,
+          "excerpt": "ACME INFOTECH PVT LTD ? Audited Financial Summary\nChartered Accountant certified annual turnover:\n- FY 2022-23: INR 11,20,00,000 (11.20 crore)\n- FY 2023-24: INR 12,10,00,000 (12.10 crore)\n- FY 2024-25: INR 12,80,00,000 (12.80 crore)\nNet worth positive in all three years. UDIN: 24ACME0117.",
+          "score": 0.275,
+          "supports": "supports"
+        },
+        {
+          "document_name": "acme-completion-cert-psu-bank.pdf",
+          "page_number": 1,
+          "excerpt": "COMPLETION CERTIFICATE ? Nationalized Bank IT Division\nM/s Acme Infotech Pvt Ltd has successfully completed \"Core banking helpdesk and facility\nmanagement services\" for a contract value of INR 22,00,00,000 (22 crore). Period: June 2021 to\nMay 2024. Performance: Good. Issued by the Chief Manager (IT), Mumbai.",
+          "score": 0.185,
+          "supports": "supports"
+        },
+        {
+          "document_name": "acme-completion-cert-railways.pdf",
+          "page_number": 1,
+          "excerpt": "COMPLETION CERTIFICATE ? Indian Railways, Centre for Railway Information Systems\nM/s Acme Infotech Pvt Ltd has successfully completed the work \"Development and maintenance of\npassenger information portal\" for a contract value of INR 21,00,00,000 (21 crore). Period: April\n2022 to March 2024. Performance: Satisfactory. Issued by the Office of the General Manager,\nCRIS, New Delhi.",
+          "score": 0.179,
+          "supports": "supports"
+        }
+      ],
+      "computed_value": null,
+      "computed_unit": "INR",
+      "notes": "FY 2024-25 turnover stated as INR 12,80,00,000; threshold is 115,637,000 INR — sufficiency determination deferred to compliance engine."
+    },
+    {
+      "requirement_id": "R5",
+      "requirement_title": "Years of past experience required",
+      "status": "missing",
+      "confidence": 0.0,
+      "hits": [],
+      "computed_value": null,
+      "computed_unit": null,
+      "notes": "No company evidence retrieved."
+    },
+    {
+      "requirement_id": "R6",
+      "requirement_title": "Past experience of similar services required",
+      "status": "missing",
+      "confidence": 0.0,
+      "hits": [],
+      "computed_value": null,
+      "computed_unit": null,
+      "notes": "No company evidence retrieved."
+    },
+    {
+      "requirement_id": "R7",
+      "requirement_title": "MSE relaxation for turnover",
+      "status": "partial",
+      "confidence": 0.85,
+      "hits": [
+        {
+          "document_name": "acme-financials-fy23-25.pdf",
+          "page_number": 1,
+          "excerpt": "ACME INFOTECH PVT LTD ? Audited Financial Summary\nChartered Accountant certified annual turnover:\n- FY 2022-23: INR 11,20,00,000 (11.20 crore)\n- FY 2023-24: INR 12,10,00,000 (12.10 crore)\n- FY 2024-25: INR 12,80,00,000 (12.80 crore)\nNet worth positive in all three years. UDIN: 24ACME0117.",
+          "score": 0.313,
+          "supports": "supports"
+        }
+      ],
+      "computed_value": null,
+      "computed_unit": "INR",
+      "notes": "FY 2024-25 turnover stated as INR 12,80,00,000; MSE relaxation threshold is 1156.37 Lakh — sufficiency determination deferred to compliance engine."
+    },
+    {
+      "requirement_id": "R8",
+      "requirement_title": "Startup relaxation for turnover",
+      "status": "partial",
+      "confidence": 0.85,
+      "hits": [
+        {
+          "document_name": "acme-financials-fy23-25.pdf",
+          "page_number": 1,
+          "excerpt": "ACME INFOTECH PVT LTD ? Audited Financial Summary\nChartered Accountant certified annual turnover:\n- FY 2022-23: INR 11,20,00,000 (11.20 crore)\n- FY 2023-24: INR 12,10,00,000 (12.10 crore)\n- FY 2024-25: INR 12,80,00,000 (12.80 crore)\nNet worth positive in all three years. UDIN: 24ACME0117.",
+          "score": 0.291,
+          "supports": "supports"
+        }
+      ],
+      "computed_value": null,
+      "computed_unit": "INR",
+      "notes": "FY 2024-25 turnover stated as INR 12,80,00,000; Startup relaxation threshold is 1156.37 Lakh — sufficiency determination deferred to compliance engine."
+    },
+    {
+      "requirement_id": "R9",
+      "requirement_title": "Documents required from seller",
+      "status": "partial",
+      "confidence": 0.65,
+      "hits": [
+        {
+          "document_name": "acme-iso-certificates.pdf",
+          "page_number": 1,
+          "excerpt": "ISO 9001:2015 Certificate No. QMS-22114 ? Acme Infotech Pvt Ltd. Scope: Design, development\nand maintenance of IT systems. Valid from 01-04-2024 to 31-03-2027.\nISO/IEC 27001:2022 Certificate No. ISMS-08831 ? Acme Infotech Pvt Ltd. Scope: Information\nsecurity management for software services. Valid from 01-04-2024 to 31-03-2027.",
+          "score": 0.216,
+          "supports": "supports"
+        },
+        {
+          "document_name": "acme-completion-cert-railways.pdf",
+          "page_number": 1,
+          "excerpt": "COMPLETION CERTIFICATE ? Indian Railways, Centre for Railway Information Systems\nM/s Acme Infotech Pvt Ltd has successfully completed the work \"Development and maintenance of\npassenger information portal\" for a contract value of INR 21,00,00,000 (21 crore). Period: April\n2022 to March 2024. Performance: Satisfactory. Issued by the Office of the General Manager,\nCRIS, New Delhi.",
+          "score": 0.209,
+          "supports": "supports"
+        },
+        {
+          "document_name": "acme-completion-cert-psu-bank.pdf",
+          "page_number": 1,
+          "excerpt": "COMPLETION CERTIFICATE ? Nationalized Bank IT Division\nM/s Acme Infotech Pvt Ltd has successfully completed \"Core banking helpdesk and facility\nmanagement services\" for a contract value of INR 22,00,00,000 (22 crore). Period: June 2021 to\nMay 2024. Performance: Good. Issued by the Chief Manager (IT), Mumbai.",
+          "score": 0.153,
+          "supports": "supports"
+        }
+      ],
+      "computed_value": null,
+      "computed_unit": null,
+      "notes": "Evidence provides Experience Criteria (completion certificates), Certificate (ISO 9001:2015, ISO/IEC 27001:2022), and Bidder Turnover (acme-financials-fy23-25.pdf); OEM Authorization Certificate, Additional Doc 1, 2, 3 are missing."
+    },
+    {
+      "requirement_id": "R10",
+      "requirement_title": "Supporting documents for exemption from experience or turnover criteria",
+      "status": "missing",
+      "confidence": 0.0,
+      "hits": [],
+      "computed_value": null,
+      "computed_unit": null,
+      "notes": "No company evidence retrieved."
+    },
+    {
+      "requirement_id": "R1-2",
+      "requirement_title": "Display of bidder documents to other participants",
+      "status": "missing",
+      "confidence": 0.0,
+      "hits": [],
+      "computed_value": null,
+      "computed_unit": null,
+      "notes": "No company evidence retrieved."
+    },
+    {
+      "requirement_id": "R2-2",
+      "requirement_title": "Minimum number of bids to disable automatic extension",
+      "status": "missing",
+      "confidence": 0.0,
+      "hits": [],
+      "computed_value": null,
+      "computed_unit": null,
+      "notes": "No company evidence retrieved."
+    },
+    {
+      "requirement_id": "R3-2",
+      "requirement_title": "Auto-extension period",
+      "status": "missing",
+      "confidence": 0.0,
+      "hits": [
+        {
+          "document_name": "acme-completion-cert-railways.pdf",
+          "page_number": 1,
+          "excerpt": "COMPLETION CERTIFICATE ? Indian Railways, Centre for Railway Information Systems\nM/s Acme Infotech Pvt Ltd has successfully completed the work \"Development and maintenance of\npassenger information portal\" for a contract value of INR 21,00,00,000 (21 crore). Period: April\n2022 to March 2024. Performance: Satisfactory. Issued by the Office of the General Manager,\nCRIS, New Delhi.",
+          "score": 0.273,
+          "supports": "supports"
+        },
+        {
+          "document_name": "acme-completion-cert-psu-bank.pdf",
+          "page_number": 1,
+          "excerpt": "COMPLETION CERTIFICATE ? Nationalized Bank IT Division\nM/s Acme Infotech Pvt Ltd has successfully completed \"Core banking helpdesk and facility\nmanagement services\" for a contract value of INR 22,00,00,000 (22 crore). Period: June 2021 to\nMay 2024. Performance: Good. Issued by the Chief Manager (IT), Mumbai.",
+          "score": 0.268,
+          "supports": "supports"
+        }
+      ],
+      "computed_value": null,
+      "computed_unit": null,
+      "notes": "No excerpt contains information about auto-extension period or 7-day threshold."
+    },
+    {
+      "requirement_id": "R4-2",
+      "requirement_title": "Auto-extension count limit",
+      "status": "missing",
+      "confidence": 0.0,
+      "hits": [
+        {
+          "document_name": "acme-completion-cert-psu-bank.pdf",
+          "page_number": 1,
+          "excerpt": "COMPLETION CERTIFICATE ? Nationalized Bank IT Division\nM/s Acme Infotech Pvt Ltd has successfully completed \"Core banking helpdesk and facility\nmanagement services\" for a contract value of INR 22,00,00,000 (22 crore). Period: June 2021 to\nMay 2024. Performance: Good. Issued by the Chief Manager (IT), Mumbai.",
+          "score": 0.26,
+          "supports": "supports"
+        },
+        {
+          "document_name": "acme-completion-cert-railways.pdf",
+          "page_number": 1,
+          "excerpt": "COMPLETION CERTIFICATE ? Indian Railways, Centre for Railway Information Systems\nM/s Acme Infotech Pvt Ltd has successfully completed the work \"Development and maintenance of\npassenger information portal\" for a contract value of INR 21,00,00,000 (21 crore). Period: April\n2022 to March 2024. Performance: Satisfactory. Issued by the Office of the General Manager,\nCRIS, New Delhi.",
+          "score": 0.23,
+          "supports": "supports"
+        }
+      ],
+      "computed_value": null,
+      "computed_unit": null,
+      "notes": "No excerpt contains information about auto-extension count limit or threshold of 1."
+    },
+    {
+      "requirement_id": "R5-2",
+      "requirement_title": "Bid type",
+      "status": "missing",
+      "confidence": 0.0,
+      "hits": [],
+      "computed_value": null,
+      "computed_unit": null,
+      "notes": "No company evidence retrieved."
+    },
+    {
+      "requirement_id": "R6-2",
+      "requirement_title": "Time allowed for technical clarifications",
+      "status": "missing",
+      "confidence": 0.0,
+      "hits": [],
+      "computed_value": null,
+      "computed_unit": null,
+      "notes": "No company evidence retrieved."
+    },
+    {
+      "requirement_id": "R7-2",
+      "requirement_title": "Estimated bid value",
+      "status": "partial",
+      "confidence": 0.3,
+      "hits": [
+        {
+          "document_name": "acme-completion-cert-railways.pdf",
+          "page_number": 1,
+          "excerpt": "COMPLETION CERTIFICATE ? Indian Railways, Centre for Railway Information Systems\nM/s Acme Infotech Pvt Ltd has successfully completed the work \"Development and maintenance of\npassenger information portal\" for a contract value of INR 21,00,00,000 (21 crore). Period: April\n2022 to March 2024. Performance: Satisfactory. Issued by the Office of the General Manager,\nCRIS, New Delhi.",
+          "score": 0.299,
+          "supports": "supports"
+        },
+        {
+          "document_name": "acme-completion-cert-psu-bank.pdf",
+          "page_number": 1,
+          "excerpt": "COMPLETION CERTIFICATE ? Nationalized Bank IT Division\nM/s Acme Infotech Pvt Ltd has successfully completed \"Core banking helpdesk and facility\nmanagement services\" for a contract value of INR 22,00,00,000 (22 crore). Period: June 2021 to\nMay 2024. Performance: Good. Issued by the Chief Manager (IT), Mumbai.",
+          "score": 0.262,
+          "supports": "supports"
+        }
+      ],
+      "computed_value": null,
+      "computed_unit": "INR",
+      "notes": "Excerpts show contract values of INR 21,00,00,000 and INR 22,00,00,000; neither matches the estimated bid value threshold of 493713737.6 INR."
+    },
+    {
+      "requirement_id": "R8-2",
+      "requirement_title": "Payment timeline",
+      "status": "missing",
+      "confidence": 0.0,
+      "hits": [
+        {
+          "document_name": "acme-completion-cert-psu-bank.pdf",
+          "page_number": 1,
+          "excerpt": "COMPLETION CERTIFICATE ? Nationalized Bank IT Division\nM/s Acme Infotech Pvt Ltd has successfully completed \"Core banking helpdesk and facility\nmanagement services\" for a contract value of INR 22,00,00,000 (22 crore). Period: June 2021 to\nMay 2024. Performance: Good. Issued by the Chief Manager (IT), Mumbai.",
+          "score": 0.245,
+          "supports": "supports"
+        },
+        {
+          "document_name": "acme-completion-cert-railways.pdf",
+          "page_number": 1,
+          "excerpt": "COMPLETION CERTIFICATE ? Indian Railways, Centre for Railway Information Systems\nM/s Acme Infotech Pvt Ltd has successfully completed the work \"Development and maintenance of\npassenger information portal\" for a contract value of INR 21,00,00,000 (21 crore). Period: April\n2022 to March 2024. Performance: Satisfactory. Issued by the Office of the General Manager,\nCRIS, New Delhi.",
+          "score": 0.239,
+          "supports": "supports"
+        }
+      ],
+      "computed_value": null,
+      "computed_unit": null,
+      "notes": "No excerpt contains information about payment timeline, SDAC, or 45-day payment constraint."
+    },
+    {
+      "requirement_id": "R9-2",
+      "requirement_title": "Financial document with price breakup",
+      "status": "missing",
+      "confidence": 0.0,
+      "hits": [],
+      "computed_value": null,
+      "computed_unit": null,
+      "notes": "No company evidence retrieved."
+    },
+    {
+      "requirement_id": "R10-2",
+      "requirement_title": "EMD amount",
+      "status": "missing",
+      "confidence": 0.0,
+      "hits": [],
+      "computed_value": null,
+      "computed_unit": null,
+      "notes": "No company evidence retrieved."
+    },
+    {
+      "requirement_id": "R1-3",
+      "requirement_title": "ePBG Percentage",
+      "status": "missing",
+      "confidence": 0.0,
+      "hits": [],
+      "computed_value": null,
+      "computed_unit": null,
+      "notes": "No company evidence retrieved."
+    },
+    {
+      "requirement_id": "R2-3",
+      "requirement_title": "ePBG Duration",
+      "status": "missing",
+      "confidence": 0.0,
+      "hits": [],
+      "computed_value": null,
+      "computed_unit": null,
+      "notes": "No company evidence retrieved."
+    },
+    {
+      "requirement_id": "R3-3",
+      "requirement_title": "EMD Exemption Supporting Documents",
+      "status": "partial",
+      "confidence": 0.4,
+      "hits": [
+        {
+          "document_name": "acme-iso-certificates.pdf",
+          "page_number": 1,
+          "excerpt": "ISO 9001:2015 Certificate No. QMS-22114 ? Acme Infotech Pvt Ltd. Scope: Design, development\nand maintenance of IT systems. Valid from 01-04-2024 to 31-03-2027.\nISO/IEC 27001:2022 Certificate No. ISMS-08831 ? Acme Infotech Pvt Ltd. Scope: Information\nsecurity management for software services. Valid from 01-04-2024 to 31-03-2027.",
+          "score": 0.271,
+          "supports": "supports"
+        },
+        {
+          "document_name": "acme-company-profile.pdf",
+          "page_number": 1,
+          "excerpt": "ACME INFOTECH PVT LTD ? Company Profile\nIncorporated: 15-06-2018 under the Companies Act 2013. Registered office: New Delhi. 240\nemployees. Business: IT services, system integration, application development and operations and\nmaintenance for government and PSU clients. GSTIN: 07ACME1234F1Z5. PAN: ACME1234F.",
+          "score": 0.21,
+          "supports": "supports"
+        }
+      ],
+      "computed_value": null,
+      "computed_unit": null,
+      "notes": "Company profile confirms Acme Infotech is a service provider in IT services; however, no explicit MSE category certification or EMD exemption supporting document is provided."
+    },
+    {
+      "requirement_id": "R4-3",
+      "requirement_title": "EMD and Performance Security Beneficiary",
+      "status": "missing",
+      "confidence": 0.0,
+      "hits": [
+        {
+          "document_name": "acme-iso-certificates.pdf",
+          "page_number": 1,
+          "excerpt": "ISO 9001:2015 Certificate No. QMS-22114 ? Acme Infotech Pvt Ltd. Scope: Design, development\nand maintenance of IT systems. Valid from 01-04-2024 to 31-03-2027.\nISO/IEC 27001:2022 Certificate No. ISMS-08831 ? Acme Infotech Pvt Ltd. Scope: Information\nsecurity management for software services. Valid from 01-04-2024 to 31-03-2027.",
+          "score": 0.369,
+          "supports": "supports"
+        },
+        {
+          "document_name": "acme-completion-cert-railways.pdf",
+          "page_number": 1,
+          "excerpt": "COMPLETION CERTIFICATE ? Indian Railways, Centre for Railway Information Systems\nM/s Acme Infotech Pvt Ltd has successfully completed the work \"Development and maintenance of\npassenger information portal\" for a contract value of INR 21,00,00,000 (21 crore). Period: April\n2022 to March 2024. Performance: Satisfactory. Issued by the Office of the General Manager,\nCRIS, New Delhi.",
+          "score": 0.327,
+          "supports": "supports"
+        }
+      ],
+      "computed_value": null,
+      "computed_unit": null,
+      "notes": "No excerpt provides evidence of EMD and Performance Security submitted in favour of O/o ED(IT) Airports Authority Of India, Safdarjung Airport, Ministry of Civil Aviation."
+    },
+    {
+      "requirement_id": "R5-3",
+      "requirement_title": "TReDS Payment Registration",
+      "status": "missing",
+      "confidence": 0.95,
+      "hits": [
+        {
+          "document_name": "acme-completion-cert-railways.pdf",
+          "page_number": 1,
+          "excerpt": "COMPLETION CERTIFICATE ? Indian Railways, Centre for Railway Information Systems\nM/s Acme Infotech Pvt Ltd has successfully completed the work \"Development and maintenance of\npassenger information portal\" for a contract value of INR 21,00,00,000 (21 crore). Period: April\n2022 to March 2024. Performance: Satisfactory. Issued by the Office of the General Manager,\nCRIS, New Delhi.",
+          "score": 0.382,
+          "supports": "supports"
+        },
+        {
+          "document_name": "acme-completion-cert-psu-bank.pdf",
+          "page_number": 1,
+          "excerpt": "COMPLETION CERTIFICATE ? Nationalized Bank IT Division\nM/s Acme Infotech Pvt Ltd has successfully completed \"Core banking helpdesk and facility\nmanagement services\" for a contract value of INR 22,00,00,000 (22 crore). Period: June 2021 to\nMay 2024. Performance: Good. Issued by the Chief Manager (IT), Mumbai.",
+          "score": 0.382,
+          "supports": "supports"
+        },
+        {
+          "document_name": "acme-iso-certificates.pdf",
+          "page_number": 1,
+          "excerpt": "ISO 9001:2015 Certificate No. QMS-22114 ? Acme Infotech Pvt Ltd. Scope: Design, development\nand maintenance of IT systems. Valid from 01-04-2024 to 31-03-2027.\nISO/IEC 27001:2022 Certificate No. ISMS-08831 ? Acme Infotech Pvt Ltd. Scope: Information\nsecurity management for software services. Valid from 01-04-2024 to 31-03-2027.",
+          "score": 0.362,
+          "supports": "supports"
+        }
+      ],
+      "computed_value": null,
+      "computed_unit": null,
+      "notes": "No TReDS exchange registration certificate provided in evidence."
+    },
+    {
+      "requirement_id": "R6-3",
+      "requirement_title": "MSE Turnover Relaxation",
+      "status": "partial",
+      "confidence": 0.85,
+      "hits": [
+        {
+          "document_name": "acme-financials-fy23-25.pdf",
+          "page_number": 1,
+          "excerpt": "ACME INFOTECH PVT LTD ? Audited Financial Summary\nChartered Accountant certified annual turnover:\n- FY 2022-23: INR 11,20,00,000 (11.20 crore)\n- FY 2023-24: INR 12,10,00,000 (12.10 crore)\n- FY 2024-25: INR 12,80,00,000 (12.80 crore)\nNet worth positive in all three years. UDIN: 24ACME0117.",
+          "score": 0.196,
+          "supports": "supports"
+        }
+      ],
+      "computed_value": null,
+      "computed_unit": null,
+      "notes": "Audited financial turnover provided (FY 2022-23: INR 11,20,00,000; FY 2023-24: INR 12,10,00,000; FY 2024-25: INR 12,80,00,000) but no explicit MSE registration certificate or eligibility proof document present."
+    },
+    {
+      "requirement_id": "R7-3",
+      "requirement_title": "DPIIT Startup Turnover Relaxation",
+      "status": "missing",
+      "confidence": 0.95,
+      "hits": [
+        {
+          "document_name": "acme-company-profile.pdf",
+          "page_number": 1,
+          "excerpt": "ACME INFOTECH PVT LTD ? Company Profile\nIncorporated: 15-06-2018 under the Companies Act 2013. Registered office: New Delhi. 240\nemployees. Business: IT services, system integration, application development and operations and\nmaintenance for government and PSU clients. GSTIN: 07ACME1234F1Z5. PAN: ACME1234F.",
+          "score": 0.21,
+          "supports": "supports"
+        }
+      ],
+      "computed_value": null,
+      "computed_unit": null,
+      "notes": "No DPIIT Startup registration certificate or eligibility proof provided; company profile shows incorporation date 15-06-2018 but no DPIIT registration evidence."
+    },
+    {
+      "requirement_id": "R8-3",
+      "requirement_title": "Minimum Average Annual Financial Turnover",
+      "status": "partial",
+      "confidence": 0.8,
+      "hits": [
+        {
+          "document_name": "acme-financials-fy23-25.pdf",
+          "page_number": 1,
+          "excerpt": "ACME INFOTECH PVT LTD ? Audited Financial Summary\nChartered Accountant certified annual turnover:\n- FY 2022-23: INR 11,20,00,000 (11.20 crore)\n- FY 2023-24: INR 12,10,00,000 (12.10 crore)\n- FY 2024-25: INR 12,80,00,000 (12.80 crore)\nNet worth positive in all three years. UDIN: 24ACME0117.",
+          "score": 0.379,
+          "supports": "supports"
+        },
+        {
+          "document_name": "acme-completion-cert-psu-bank.pdf",
+          "page_number": 1,
+          "excerpt": "COMPLETION CERTIFICATE ? Nationalized Bank IT Division\nM/s Acme Infotech Pvt Ltd has successfully completed \"Core banking helpdesk and facility\nmanagement services\" for a contract value of INR 22,00,00,000 (22 crore). Period: June 2021 to\nMay 2024. Performance: Good. Issued by the Chief Manager (IT), Mumbai.",
+          "score": 0.187,
+          "supports": "supports"
+        }
+      ],
+      "computed_value": null,
+      "computed_unit": "INR",
+      "notes": "Chartered Accountant certified annual turnover for three financial years provided (FY 2022-23, 2023-24, 2024-25) with positive net worth; threshold value not stated in requirement excerpt so sufficiency cannot be determined."
+    },
+    {
+      "requirement_id": "R9-3",
+      "requirement_title": "Years of Past Experience",
+      "status": "partial",
+      "confidence": 0.7,
+      "hits": [
+        {
+          "document_name": "acme-completion-cert-railways.pdf",
+          "page_number": 1,
+          "excerpt": "COMPLETION CERTIFICATE ? Indian Railways, Centre for Railway Information Systems\nM/s Acme Infotech Pvt Ltd has successfully completed the work \"Development and maintenance of\npassenger information portal\" for a contract value of INR 21,00,00,000 (21 crore). Period: April\n2022 to March 2024. Performance: Satisfactory. Issued by the Office of the General Manager,\nCRIS, New Delhi.",
+          "score": 0.234,
+          "supports": "supports"
+        },
+        {
+          "document_name": "acme-completion-cert-psu-bank.pdf",
+          "page_number": 1,
+          "excerpt": "COMPLETION CERTIFICATE ? Nationalized Bank IT Division\nM/s Acme Infotech Pvt Ltd has successfully completed \"Core banking helpdesk and facility\nmanagement services\" for a contract value of INR 22,00,00,000 (22 crore). Period: June 2021 to\nMay 2024. Performance: Good. Issued by the Chief Manager (IT), Mumbai.",
+          "score": 0.214,
+          "supports": "supports"
+        }
+      ],
+      "computed_value": null,
+      "computed_unit": null,
+      "notes": "Two completion certificates show project periods (April 2022–March 2024 and June 2021–May 2024) but threshold years requirement is unquantified in excerpt; cannot assess sufficiency without specific threshold."
+    },
+    {
+      "requirement_id": "R10-3",
+      "requirement_title": "MII Compliance",
+      "status": "missing",
+      "confidence": 0.0,
+      "hits": [],
+      "computed_value": null,
+      "computed_unit": null,
+      "notes": "No company evidence retrieved."
+    },
+    {
+      "requirement_id": "R1-4",
+      "requirement_title": "Copies of relevant contracts/orders for past services",
+      "status": "partial",
+      "confidence": 0.65,
+      "hits": [
+        {
+          "document_name": "acme-completion-cert-railways.pdf",
+          "page_number": 1,
+          "excerpt": "COMPLETION CERTIFICATE ? Indian Railways, Centre for Railway Information Systems\nM/s Acme Infotech Pvt Ltd has successfully completed the work \"Development and maintenance of\npassenger information portal\" for a contract value of INR 21,00,00,000 (21 crore). Period: April\n2022 to March 2024. Performance: Satisfactory. Issued by the Office of the General Manager,\nCRIS, New Delhi.",
+          "score": 0.164,
+          "supports": "supports"
+        }
+      ],
+      "computed_value": null,
+      "computed_unit": null,
+      "notes": "Completion certificates provided as evidence of past services but actual copies of contracts/orders themselves are not included in excerpts."
+    },
+    {
+      "requirement_id": "R2-4",
+      "requirement_title": "Past Experience - Option 1: Three similar completed services",
+      "status": "partial",
+      "confidence": 0.6,
+      "hits": [
+        {
+          "document_name": "acme-completion-cert-psu-bank.pdf",
+          "page_number": 1,
+          "excerpt": "COMPLETION CERTIFICATE ? Nationalized Bank IT Division\nM/s Acme Infotech Pvt Ltd has successfully completed \"Core banking helpdesk and facility\nmanagement services\" for a contract value of INR 22,00,00,000 (22 crore). Period: June 2021 to\nMay 2024. Performance: Good. Issued by the Chief Manager (IT), Mumbai.",
+          "score": 0.275,
+          "supports": "supports"
+        },
+        {
+          "document_name": "acme-completion-cert-railways.pdf",
+          "page_number": 1,
+          "excerpt": "COMPLETION CERTIFICATE ? Indian Railways, Centre for Railway Information Systems\nM/s Acme Infotech Pvt Ltd has successfully completed the work \"Development and maintenance of\npassenger information portal\" for a contract value of INR 21,00,00,000 (21 crore). Period: April\n2022 to March 2024. Performance: Satisfactory. Issued by the Office of the General Manager,\nCRIS, New Delhi.",
+          "score": 0.257,
+          "supports": "supports"
+        }
+      ],
+      "computed_value": null,
+      "computed_unit": "INR",
+      "notes": "Two completed services with contract values of 22 crore and 21 crore documented; threshold sufficiency against 40% of estimated cost cannot be determined without estimated cost figure."
+    },
+    {
+      "requirement_id": "R3-4",
+      "requirement_title": "Past Experience - Option 2: Two similar completed services",
+      "status": "partial",
+      "confidence": 0.6,
+      "hits": [
+        {
+          "document_name": "acme-completion-cert-psu-bank.pdf",
+          "page_number": 1,
+          "excerpt": "COMPLETION CERTIFICATE ? Nationalized Bank IT Division\nM/s Acme Infotech Pvt Ltd has successfully completed \"Core banking helpdesk and facility\nmanagement services\" for a contract value of INR 22,00,00,000 (22 crore). Period: June 2021 to\nMay 2024. Performance: Good. Issued by the Chief Manager (IT), Mumbai.",
+          "score": 0.271,
+          "supports": "supports"
+        },
+        {
+          "document_name": "acme-completion-cert-railways.pdf",
+          "page_number": 1,
+          "excerpt": "COMPLETION CERTIFICATE ? Indian Railways, Centre for Railway Information Systems\nM/s Acme Infotech Pvt Ltd has successfully completed the work \"Development and maintenance of\npassenger information portal\" for a contract value of INR 21,00,00,000 (21 crore). Period: April\n2022 to March 2024. Performance: Satisfactory. Issued by the Office of the General Manager,\nCRIS, New Delhi.",
+          "score": 0.258,
+          "supports": "supports"
+        }
+      ],
+      "computed_value": null,
+      "computed_unit": "INR",
+      "notes": "Two completed services with contract values of 22 crore and 21 crore documented; threshold sufficiency against 50% of estimated cost cannot be determined without estimated cost figure."
+    },
+    {
+      "requirement_id": "R4-4",
+      "requirement_title": "Past Experience - Option 3: One similar completed service",
+      "status": "partial",
+      "confidence": 0.6,
+      "hits": [
+        {
+          "document_name": "acme-completion-cert-psu-bank.pdf",
+          "page_number": 1,
+          "excerpt": "COMPLETION CERTIFICATE ? Nationalized Bank IT Division\nM/s Acme Infotech Pvt Ltd has successfully completed \"Core banking helpdesk and facility\nmanagement services\" for a contract value of INR 22,00,00,000 (22 crore). Period: June 2021 to\nMay 2024. Performance: Good. Issued by the Chief Manager (IT), Mumbai.",
+          "score": 0.26,
+          "supports": "supports"
+        },
+        {
+          "document_name": "acme-completion-cert-railways.pdf",
+          "page_number": 1,
+          "excerpt": "COMPLETION CERTIFICATE ? Indian Railways, Centre for Railway Information Systems\nM/s Acme Infotech Pvt Ltd has successfully completed the work \"Development and maintenance of\npassenger information portal\" for a contract value of INR 21,00,00,000 (21 crore). Period: April\n2022 to March 2024. Performance: Satisfactory. Issued by the Office of the General Manager,\nCRIS, New Delhi.",
+          "score": 0.257,
+          "supports": "supports"
+        }
+      ],
+      "computed_value": null,
+      "computed_unit": "INR",
+      "notes": "One completed service with contract value of 22 crore documented; threshold sufficiency against 80% of estimated cost cannot be determined without estimated cost figure."
+    },
+    {
+      "requirement_id": "R5-4",
+      "requirement_title": "Past Experience timeframe",
+      "status": "partial",
+      "confidence": 0.5,
+      "hits": [
+        {
+          "document_name": "acme-financials-fy23-25.pdf",
+          "page_number": 1,
+          "excerpt": "ACME INFOTECH PVT LTD ? Audited Financial Summary\nChartered Accountant certified annual turnover:\n- FY 2022-23: INR 11,20,00,000 (11.20 crore)\n- FY 2023-24: INR 12,10,00,000 (12.10 crore)\n- FY 2024-25: INR 12,80,00,000 (12.80 crore)\nNet worth positive in all three years. UDIN: 24ACME0117.",
+          "score": 0.217,
+          "supports": "supports"
+        },
+        {
+          "document_name": "acme-completion-cert-railways.pdf",
+          "page_number": 1,
+          "excerpt": "COMPLETION CERTIFICATE ? Indian Railways, Centre for Railway Information Systems\nM/s Acme Infotech Pvt Ltd has successfully completed the work \"Development and maintenance of\npassenger information portal\" for a contract value of INR 21,00,00,000 (21 crore). Period: April\n2022 to March 2024. Performance: Satisfactory. Issued by the Office of the General Manager,\nCRIS, New Delhi.",
+          "score": 0.217,
+          "supports": "supports"
+        }
+      ],
+      "computed_value": null,
+      "computed_unit": null,
+      "notes": "Railways project spans April 2022 to March 2024 (within three-year window); financial data covers FY 2022-23, 2023-24, 2024-25; exact bid opening date and financial year boundaries not provided to confirm full compliance with timeframe requirement."
+    },
+    {
+      "requirement_id": "R6-4",
+      "requirement_title": "MSE purchase preference documentation",
+      "status": "missing",
+      "confidence": 0.0,
+      "hits": [],
+      "computed_value": null,
+      "computed_unit": null,
+      "notes": "No company evidence retrieved."
+    },
+    {
+      "requirement_id": "R7-4",
+      "requirement_title": "Excel file upload - AirSewa_PACR_BoQ",
+      "status": "missing",
+      "confidence": 0.0,
+      "hits": [],
+      "computed_value": null,
+      "computed_unit": null,
+      "notes": "No company evidence retrieved."
+    },
+    {
+      "requirement_id": "R8-4",
+      "requirement_title": "Minimum passing technical marks",
+      "status": "missing",
+      "confidence": 0.1,
+      "hits": [
+        {
+          "document_name": "acme-completion-cert-railways.pdf",
+          "page_number": 1,
+          "excerpt": "COMPLETION CERTIFICATE ? Indian Railways, Centre for Railway Information Systems\nM/s Acme Infotech Pvt Ltd has successfully completed the work \"Development and maintenance of\npassenger information portal\" for a contract value of INR 21,00,00,000 (21 crore). Period: April\n2022 to March 2024. Performance: Satisfactory. Issued by the Office of the General Manager,\nCRIS, New Delhi.",
+          "score": 0.35,
+          "supports": "supports"
+        },
+        {
+          "document_name": "acme-iso-certificates.pdf",
+          "page_number": 1,
+          "excerpt": "ISO 9001:2015 Certificate No. QMS-22114 ? Acme Infotech Pvt Ltd. Scope: Design, development\nand maintenance of IT systems. Valid from 01-04-2024 to 31-03-2027.\nISO/IEC 27001:2022 Certificate No. ISMS-08831 ? Acme Infotech Pvt Ltd. Scope: Information\nsecurity management for software services. Valid from 01-04-2024 to 31-03-2027.",
+          "score": 0.349,
+          "supports": "supports"
+        }
+      ],
+      "computed_value": null,
+      "computed_unit": null,
+      "notes": "No excerpt provides technical marks or evaluation score; ISO certificates and completion certificates do not constitute technical marks evidence."
+    },
+    {
+      "requirement_id": "R9-4",
+      "requirement_title": "Pre-Bid meeting date and time",
+      "status": "missing",
+      "confidence": 0.0,
+      "hits": [
+        {
+          "document_name": "acme-completion-cert-railways.pdf",
+          "page_number": 1,
+          "excerpt": "COMPLETION CERTIFICATE ? Indian Railways, Centre for Railway Information Systems\nM/s Acme Infotech Pvt Ltd has successfully completed the work \"Development and maintenance of\npassenger information portal\" for a contract value of INR 21,00,00,000 (21 crore). Period: April\n2022 to March 2024. Performance: Satisfactory. Issued by the Office of the General Manager,\nCRIS, New Delhi.",
+          "score": 0.267,
+          "supports": "supports"
+        },
+        {
+          "document_name": "acme-iso-certificates.pdf",
+          "page_number": 1,
+          "excerpt": "ISO 9001:2015 Certificate No. QMS-22114 ? Acme Infotech Pvt Ltd. Scope: Design, development\nand maintenance of IT systems. Valid from 01-04-2024 to 31-03-2027.\nISO/IEC 27001:2022 Certificate No. ISMS-08831 ? Acme Infotech Pvt Ltd. Scope: Information\nsecurity management for software services. Valid from 01-04-2024 to 31-03-2027.",
+          "score": 0.23,
+          "supports": "supports"
+        }
+      ],
+      "computed_value": null,
+      "computed_unit": null,
+      "notes": "No excerpt contains pre-bid meeting date and time information; requirement is informational only and no supporting evidence provided."
+    },
+    {
+      "requirement_id": "R10-4",
+      "requirement_title": "Technical Criteria as per Scope of Work",
+      "status": "partial",
+      "confidence": 0.3,
+      "hits": [
+        {
+          "document_name": "acme-iso-certificates.pdf",
+          "page_number": 1,
+          "excerpt": "ISO 9001:2015 Certificate No. QMS-22114 ? Acme Infotech Pvt Ltd. Scope: Design, development\nand maintenance of IT systems. Valid from 01-04-2024 to 31-03-2027.\nISO/IEC 27001:2022 Certificate No. ISMS-08831 ? Acme Infotech Pvt Ltd. Scope: Information\nsecurity management for software services. Valid from 01-04-2024 to 31-03-2027.",
+          "score": 0.267,
+          "supports": "supports"
+        },
+        {
+          "document_name": "acme-completion-cert-railways.pdf",
+          "page_number": 1,
+          "excerpt": "COMPLETION CERTIFICATE ? Indian Railways, Centre for Railway Information Systems\nM/s Acme Infotech Pvt Ltd has successfully completed the work \"Development and maintenance of\npassenger information portal\" for a contract value of INR 21,00,00,000 (21 crore). Period: April\n2022 to March 2024. Performance: Satisfactory. Issued by the Office of the General Manager,\nCRIS, New Delhi.",
+          "score": 0.212,
+          "supports": "supports"
+        }
+      ],
+      "computed_value": null,
+      "computed_unit": null,
+      "notes": "ISO certificates and railway project completion show technical capability in design, development, and maintenance, but the specific Scope of Work document (1790948460.pdf) is not provided."
+    },
+    {
+      "requirement_id": "R1-5",
+      "requirement_title": "Scope of Work Coverage",
+      "status": "partial",
+      "confidence": 0.35,
+      "hits": [
+        {
+          "document_name": "acme-company-profile.pdf",
+          "page_number": 1,
+          "excerpt": "ACME INFOTECH PVT LTD ? Company Profile\nIncorporated: 15-06-2018 under the Companies Act 2013. Registered office: New Delhi. 240\nemployees. Business: IT services, system integration, application development and operations and\nmaintenance for government and PSU clients. GSTIN: 07ACME1234F1Z5. PAN: ACME1234F.",
+          "score": 0.282,
+          "supports": "supports"
+        },
+        {
+          "document_name": "acme-iso-certificates.pdf",
+          "page_number": 1,
+          "excerpt": "ISO 9001:2015 Certificate No. QMS-22114 ? Acme Infotech Pvt Ltd. Scope: Design, development\nand maintenance of IT systems. Valid from 01-04-2024 to 31-03-2027.\nISO/IEC 27001:2022 Certificate No. ISMS-08831 ? Acme Infotech Pvt Ltd. Scope: Information\nsecurity management for software services. Valid from 01-04-2024 to 31-03-2027.",
+          "score": 0.23,
+          "supports": "supports"
+        },
+        {
+          "document_name": "acme-completion-cert-psu-bank.pdf",
+          "page_number": 1,
+          "excerpt": "COMPLETION CERTIFICATE ? Nationalized Bank IT Division\nM/s Acme Infotech Pvt Ltd has successfully completed \"Core banking helpdesk and facility\nmanagement services\" for a contract value of INR 22,00,00,000 (22 crore). Period: June 2021 to\nMay 2024. Performance: Good. Issued by the Chief Manager (IT), Mumbai.",
+          "score": 0.23,
+          "supports": "supports"
+        }
+      ],
+      "computed_value": null,
+      "computed_unit": null,
+      "notes": "Company profile and ISO certificates confirm design, development, and maintenance capabilities, but no explicit evidence of all ten scope items (Project Planning, System Study, Network Connectivity, Data Digitization, Site Preparation, STQC Certification, UAT & Go live, Data Migration, Integration)."
+    },
+    {
+      "requirement_id": "R2-5",
+      "requirement_title": "Resources as per Scope of Work",
+      "status": "missing",
+      "confidence": 0.0,
+      "hits": [
+        {
+          "document_name": "acme-completion-cert-railways.pdf",
+          "page_number": 1,
+          "excerpt": "COMPLETION CERTIFICATE ? Indian Railways, Centre for Railway Information Systems\nM/s Acme Infotech Pvt Ltd has successfully completed the work \"Development and maintenance of\npassenger information portal\" for a contract value of INR 21,00,00,000 (21 crore). Period: April\n2022 to March 2024. Performance: Satisfactory. Issued by the Office of the General Manager,\nCRIS, New Delhi.",
+          "score": 0.174,
+          "supports": "supports"
+        }
+      ],
+      "computed_value": null,
+      "computed_unit": null,
+      "notes": "No excerpt specifies resources (staffing, equipment, infrastructure) as per scope of work; completion certificates show past delivery but not resource details."
+    },
+    {
+      "requirement_id": "R3-5",
+      "requirement_title": "Core Team Deployment Model",
+      "status": "missing",
+      "confidence": 0.0,
+      "hits": [
+        {
+          "document_name": "acme-completion-cert-psu-bank.pdf",
+          "page_number": 1,
+          "excerpt": "COMPLETION CERTIFICATE ? Nationalized Bank IT Division\nM/s Acme Infotech Pvt Ltd has successfully completed \"Core banking helpdesk and facility\nmanagement services\" for a contract value of INR 22,00,00,000 (22 crore). Period: June 2021 to\nMay 2024. Performance: Good. Issued by the Chief Manager (IT), Mumbai.",
+          "score": 0.151,
+          "supports": "supports"
+        },
+        {
+          "document_name": "acme-iso-certificates.pdf",
+          "page_number": 1,
+          "excerpt": "ISO 9001:2015 Certificate No. QMS-22114 ? Acme Infotech Pvt Ltd. Scope: Design, development\nand maintenance of IT systems. Valid from 01-04-2024 to 31-03-2027.\nISO/IEC 27001:2022 Certificate No. ISMS-08831 ? Acme Infotech Pvt Ltd. Scope: Information\nsecurity management for software services. Valid from 01-04-2024 to 31-03-2027.",
+          "score": 0.151,
+          "supports": "supports"
+        }
+      ],
+      "computed_value": null,
+      "computed_unit": null,
+      "notes": "No excerpt describes core team deployment model (onsite, offshore, hybrid, or staffing structure)."
+    },
+    {
+      "requirement_id": "R4-5",
+      "requirement_title": "Deliverables and Timelines",
+      "status": "partial",
+      "confidence": 0.25,
+      "hits": [
+        {
+          "document_name": "acme-completion-cert-railways.pdf",
+          "page_number": 1,
+          "excerpt": "COMPLETION CERTIFICATE ? Indian Railways, Centre for Railway Information Systems\nM/s Acme Infotech Pvt Ltd has successfully completed the work \"Development and maintenance of\npassenger information portal\" for a contract value of INR 21,00,00,000 (21 crore). Period: April\n2022 to March 2024. Performance: Satisfactory. Issued by the Office of the General Manager,\nCRIS, New Delhi.",
+          "score": 0.336,
+          "supports": "supports"
+        },
+        {
+          "document_name": "acme-iso-certificates.pdf",
+          "page_number": 1,
+          "excerpt": "ISO 9001:2015 Certificate No. QMS-22114 ? Acme Infotech Pvt Ltd. Scope: Design, development\nand maintenance of IT systems. Valid from 01-04-2024 to 31-03-2027.\nISO/IEC 27001:2022 Certificate No. ISMS-08831 ? Acme Infotech Pvt Ltd. Scope: Information\nsecurity management for software services. Valid from 01-04-2024 to 31-03-2027.",
+          "score": 0.241,
+          "supports": "supports"
+        }
+      ],
+      "computed_value": null,
+      "computed_unit": null,
+      "notes": "Railway project completion shows delivery capability, but no explicit evidence of submission timelines for Project Plan, FRS, HLD, or SRS documents."
+    },
+    {
+      "requirement_id": "R5-5",
+      "requirement_title": "Minimum Floor Price",
+      "status": "missing",
+      "confidence": 0.0,
+      "hits": [],
+      "computed_value": null,
+      "computed_unit": null,
+      "notes": "No company evidence retrieved."
+    },
+    {
+      "requirement_id": "R6-5",
+      "requirement_title": "Input Tax Credit and Reverse Charge Details",
+      "status": "missing",
+      "confidence": 0.0,
+      "hits": [],
+      "computed_value": null,
+      "computed_unit": null,
+      "notes": "No company evidence retrieved."
+    },
+    {
+      "requirement_id": "R1-6",
+      "requirement_title": "Option Clause for quantity or duration adjustment",
+      "status": "missing",
+      "confidence": 0.0,
+      "hits": [
+        {
+          "document_name": "acme-completion-cert-railways.pdf",
+          "page_number": 1,
+          "excerpt": "COMPLETION CERTIFICATE ? Indian Railways, Centre for Railway Information Systems\nM/s Acme Infotech Pvt Ltd has successfully completed the work \"Development and maintenance of\npassenger information portal\" for a contract value of INR 21,00,00,000 (21 crore). Period: April\n2022 to March 2024. Performance: Satisfactory. Issued by the Office of the General Manager,\nCRIS, New Delhi.",
+          "score": 0.189,
+          "supports": "supports"
+        },
+        {
+          "document_name": "acme-completion-cert-psu-bank.pdf",
+          "page_number": 1,
+          "excerpt": "COMPLETION CERTIFICATE ? Nationalized Bank IT Division\nM/s Acme Infotech Pvt Ltd has successfully completed \"Core banking helpdesk and facility\nmanagement services\" for a contract value of INR 22,00,00,000 (22 crore). Period: June 2021 to\nMay 2024. Performance: Good. Issued by the Chief Manager (IT), Mumbai.",
+          "score": 0.171,
+          "supports": "supports"
+        }
+      ],
+      "computed_value": null,
+      "computed_unit": null,
+      "notes": "No excerpt confirms bidder's acceptance of option clause for up to 25 percent quantity or duration adjustment."
+    },
+    {
+      "requirement_id": "R2-6",
+      "requirement_title": "Escalation Matrix for Service Support",
+      "status": "missing",
+      "confidence": 0.0,
+      "hits": [],
+      "computed_value": null,
+      "computed_unit": null,
+      "notes": "No company evidence retrieved."
+    },
+    {
+      "requirement_id": "R3-6",
+      "requirement_title": "Dedicated or toll-free telephone number for Service Support",
+      "status": "missing",
+      "confidence": 0.0,
+      "hits": [],
+      "computed_value": null,
+      "computed_unit": null,
+      "notes": "No company evidence retrieved."
+    },
+    {
+      "requirement_id": "R4-6",
+      "requirement_title": "Malicious Code Certificate",
+      "status": "missing",
+      "confidence": 0.95,
+      "hits": [
+        {
+          "document_name": "acme-iso-certificates.pdf",
+          "page_number": 1,
+          "excerpt": "ISO 9001:2015 Certificate No. QMS-22114 ? Acme Infotech Pvt Ltd. Scope: Design, development\nand maintenance of IT systems. Valid from 01-04-2024 to 31-03-2027.\nISO/IEC 27001:2022 Certificate No. ISMS-08831 ? Acme Infotech Pvt Ltd. Scope: Information\nsecurity management for software services. Valid from 01-04-2024 to 31-03-2027.",
+          "score": 0.381,
+          "supports": "supports"
+        },
+        {
+          "document_name": "acme-completion-cert-railways.pdf",
+          "page_number": 1,
+          "excerpt": "COMPLETION CERTIFICATE ? Indian Railways, Centre for Railway Information Systems\nM/s Acme Infotech Pvt Ltd has successfully completed the work \"Development and maintenance of\npassenger information portal\" for a contract value of INR 21,00,00,000 (21 crore). Period: April\n2022 to March 2024. Performance: Satisfactory. Issued by the Office of the General Manager,\nCRIS, New Delhi.",
+          "score": 0.237,
+          "supports": "supports"
+        },
+        {
+          "document_name": "acme-completion-cert-psu-bank.pdf",
+          "page_number": 1,
+          "excerpt": "COMPLETION CERTIFICATE ? Nationalized Bank IT Division\nM/s Acme Infotech Pvt Ltd has successfully completed \"Core banking helpdesk and facility\nmanagement services\" for a contract value of INR 22,00,00,000 (22 crore). Period: June 2021 to\nMay 2024. Performance: Good. Issued by the Chief Manager (IT), Mumbai.",
+          "score": 0.212,
+          "supports": "supports"
+        }
+      ],
+      "computed_value": null,
+      "computed_unit": null,
+      "notes": "No excerpt provides a Malicious Code Certificate; ISO and completion certificates do not certify absence of embedded malicious code."
+    },
+    {
+      "requirement_id": "R1-7",
+      "requirement_title": "Upload of certificates and documents",
+      "status": "partial",
+      "confidence": 0.7,
+      "hits": [
+        {
+          "document_name": "acme-completion-cert-railways.pdf",
+          "page_number": 1,
+          "excerpt": "COMPLETION CERTIFICATE ? Indian Railways, Centre for Railway Information Systems\nM/s Acme Infotech Pvt Ltd has successfully completed the work \"Development and maintenance of\npassenger information portal\" for a contract value of INR 21,00,00,000 (21 crore). Period: April\n2022 to March 2024. Performance: Satisfactory. Issued by the Office of the General Manager,\nCRIS, New Delhi.",
+          "score": 0.415,
+          "supports": "supports"
+        },
+        {
+          "document_name": "acme-iso-certificates.pdf",
+          "page_number": 1,
+          "excerpt": "ISO 9001:2015 Certificate No. QMS-22114 ? Acme Infotech Pvt Ltd. Scope: Design, development\nand maintenance of IT systems. Valid from 01-04-2024 to 31-03-2027.\nISO/IEC 27001:2022 Certificate No. ISMS-08831 ? Acme Infotech Pvt Ltd. Scope: Information\nsecurity management for software services. Valid from 01-04-2024 to 31-03-2027.",
+          "score": 0.405,
+          "supports": "supports"
+        },
+        {
+          "document_name": "acme-completion-cert-psu-bank.pdf",
+          "page_number": 1,
+          "excerpt": "COMPLETION CERTIFICATE ? Nationalized Bank IT Division\nM/s Acme Infotech Pvt Ltd has successfully completed \"Core banking helpdesk and facility\nmanagement services\" for a contract value of INR 22,00,00,000 (22 crore). Period: June 2021 to\nMay 2024. Performance: Good. Issued by the Chief Manager (IT), Mumbai.",
+          "score": 0.377,
+          "supports": "supports"
+        }
+      ],
+      "computed_value": null,
+      "computed_unit": null,
+      "notes": "ISO 9001:2015, ISO/IEC 27001:2022, and two completion certificates are provided, but requirement specifies 'all certificates and documents sought in Bid document, ATC and Corrigendum'—full scope cannot be verified from excerpts alone."
+    },
+    {
+      "requirement_id": "R2-7",
+      "requirement_title": "Prohibition on malicious code in embedded software",
+      "status": "partial",
+      "confidence": 0.55,
+      "hits": [
+        {
+          "document_name": "acme-iso-certificates.pdf",
+          "page_number": 1,
+          "excerpt": "ISO 9001:2015 Certificate No. QMS-22114 ? Acme Infotech Pvt Ltd. Scope: Design, development\nand maintenance of IT systems. Valid from 01-04-2024 to 31-03-2027.\nISO/IEC 27001:2022 Certificate No. ISMS-08831 ? Acme Infotech Pvt Ltd. Scope: Information\nsecurity management for software services. Valid from 01-04-2024 to 31-03-2027.",
+          "score": 0.293,
+          "supports": "supports"
+        },
+        {
+          "document_name": "acme-completion-cert-railways.pdf",
+          "page_number": 1,
+          "excerpt": "COMPLETION CERTIFICATE ? Indian Railways, Centre for Railway Information Systems\nM/s Acme Infotech Pvt Ltd has successfully completed the work \"Development and maintenance of\npassenger information portal\" for a contract value of INR 21,00,00,000 (21 crore). Period: April\n2022 to March 2024. Performance: Satisfactory. Issued by the Office of the General Manager,\nCRIS, New Delhi.",
+          "score": 0.17,
+          "supports": "supports"
+        }
+      ],
+      "computed_value": null,
+      "computed_unit": null,
+      "notes": "ISO/IEC 27001:2022 certificate on information security management is tangentially relevant but does not explicitly address prohibition on malicious code in embedded software or breach consequences."
+    },
+    {
+      "requirement_id": "R3-7",
+      "requirement_title": "EMD and Integrity Pact submission timeline",
+      "status": "missing",
+      "confidence": 0.0,
+      "hits": [],
+      "computed_value": null,
+      "computed_unit": null,
+      "notes": "No company evidence retrieved."
+    },
+    {
+      "requirement_id": "R4-7",
+      "requirement_title": "GeM right to cancel bid for ATC violations",
+      "status": "missing",
+      "confidence": 0.0,
+      "hits": [],
+      "computed_value": null,
+      "computed_unit": null,
+      "notes": "No company evidence retrieved."
+    },
+    {
+      "requirement_id": "R5-6",
+      "requirement_title": "Seller representation and grievance submission",
+      "status": "missing",
+      "confidence": 0.0,
+      "hits": [],
+      "computed_value": null,
+      "computed_unit": null,
+      "notes": "No company evidence retrieved."
+    },
+    {
+      "requirement_id": "R1-8",
+      "requirement_title": "Labour Laws Compliance",
+      "status": "missing",
+      "confidence": 0.95,
+      "hits": [
+        {
+          "document_name": "acme-completion-cert-railways.pdf",
+          "page_number": 1,
+          "excerpt": "COMPLETION CERTIFICATE ? Indian Railways, Centre for Railway Information Systems\nM/s Acme Infotech Pvt Ltd has successfully completed the work \"Development and maintenance of\npassenger information portal\" for a contract value of INR 21,00,00,000 (21 crore). Period: April\n2022 to March 2024. Performance: Satisfactory. Issued by the Office of the General Manager,\nCRIS, New Delhi.",
+          "score": 0.151,
+          "supports": "supports"
+        }
+      ],
+      "computed_value": null,
+      "computed_unit": null,
+      "notes": "No excerpt provides evidence of Labour Laws Compliance or compliance with notified Labour Codes and operative Labour Laws."
+    },
+    {
+      "requirement_id": "R2-8",
+      "requirement_title": "Statutory Obligations on Wages, Social Security, Safety",
+      "status": "missing",
+      "confidence": 0.95,
+      "hits": [
+        {
+          "document_name": "acme-iso-certificates.pdf",
+          "page_number": 1,
+          "excerpt": "ISO 9001:2015 Certificate No. QMS-22114 ? Acme Infotech Pvt Ltd. Scope: Design, development\nand maintenance of IT systems. Valid from 01-04-2024 to 31-03-2027.\nISO/IEC 27001:2022 Certificate No. ISMS-08831 ? Acme Infotech Pvt Ltd. Scope: Information\nsecurity management for software services. Valid from 01-04-2024 to 31-03-2027.",
+          "score": 0.243,
+          "supports": "supports"
+        },
+        {
+          "document_name": "acme-completion-cert-railways.pdf",
+          "page_number": 1,
+          "excerpt": "COMPLETION CERTIFICATE ? Indian Railways, Centre for Railway Information Systems\nM/s Acme Infotech Pvt Ltd has successfully completed the work \"Development and maintenance of\npassenger information portal\" for a contract value of INR 21,00,00,000 (21 crore). Period: April\n2022 to March 2024. Performance: Satisfactory. Issued by the Office of the General Manager,\nCRIS, New Delhi.",
+          "score": 0.219,
+          "supports": "supports"
+        },
+        {
+          "document_name": "acme-completion-cert-psu-bank.pdf",
+          "page_number": 1,
+          "excerpt": "COMPLETION CERTIFICATE ? Nationalized Bank IT Division\nM/s Acme Infotech Pvt Ltd has successfully completed \"Core banking helpdesk and facility\nmanagement services\" for a contract value of INR 22,00,00,000 (22 crore). Period: June 2021 to\nMay 2024. Performance: Good. Issued by the Chief Manager (IT), Mumbai.",
+          "score": 0.176,
+          "supports": "supports"
+        }
+      ],
+      "computed_value": null,
+      "computed_unit": null,
+      "notes": "No excerpt provides evidence of compliance with statutory obligations on wages, social security, or safety."
+    },
+    {
+      "requirement_id": "R3-8",
+      "requirement_title": "Compliance with General Terms and Conditions",
+      "status": "missing",
+      "confidence": 0.0,
+      "hits": [],
+      "computed_value": null,
+      "computed_unit": null,
+      "notes": "No company evidence retrieved."
+    },
+    {
+      "requirement_id": "R4-8",
+      "requirement_title": "Land Border Country Bidder Registration",
+      "status": "missing",
+      "confidence": 0.95,
+      "hits": [
+        {
+          "document_name": "acme-completion-cert-railways.pdf",
+          "page_number": 1,
+          "excerpt": "COMPLETION CERTIFICATE ? Indian Railways, Centre for Railway Information Systems\nM/s Acme Infotech Pvt Ltd has successfully completed the work \"Development and maintenance of\npassenger information portal\" for a contract value of INR 21,00,00,000 (21 crore). Period: April\n2022 to March 2024. Performance: Satisfactory. Issued by the Office of the General Manager,\nCRIS, New Delhi.",
+          "score": 0.268,
+          "supports": "supports"
+        },
+        {
+          "document_name": "acme-completion-cert-psu-bank.pdf",
+          "page_number": 1,
+          "excerpt": "COMPLETION CERTIFICATE ? Nationalized Bank IT Division\nM/s Acme Infotech Pvt Ltd has successfully completed \"Core banking helpdesk and facility\nmanagement services\" for a contract value of INR 22,00,00,000 (22 crore). Period: June 2021 to\nMay 2024. Performance: Good. Issued by the Chief Manager (IT), Mumbai.",
+          "score": 0.235,
+          "supports": "supports"
+        }
+      ],
+      "computed_value": null,
+      "computed_unit": null,
+      "notes": "No excerpt provides registration certificate with Competent Authority for land border country bidders; requirement applicability and bidder origin cannot be determined from excerpts."
+    },
+    {
+      "requirement_id": "R5-7",
+      "requirement_title": "Undertaking Compliance for Land Border Country Bidders",
+      "status": "missing",
+      "confidence": 0.95,
+      "hits": [
+        {
+          "document_name": "acme-completion-cert-railways.pdf",
+          "page_number": 1,
+          "excerpt": "COMPLETION CERTIFICATE ? Indian Railways, Centre for Railway Information Systems\nM/s Acme Infotech Pvt Ltd has successfully completed the work \"Development and maintenance of\npassenger information portal\" for a contract value of INR 21,00,00,000 (21 crore). Period: April\n2022 to March 2024. Performance: Satisfactory. Issued by the Office of the General Manager,\nCRIS, New Delhi.",
+          "score": 0.29,
+          "supports": "supports"
+        },
+        {
+          "document_name": "acme-completion-cert-psu-bank.pdf",
+          "page_number": 1,
+          "excerpt": "COMPLETION CERTIFICATE ? Nationalized Bank IT Division\nM/s Acme Infotech Pvt Ltd has successfully completed \"Core banking helpdesk and facility\nmanagement services\" for a contract value of INR 22,00,00,000 (22 crore). Period: June 2021 to\nMay 2024. Performance: Good. Issued by the Chief Manager (IT), Mumbai.",
+          "score": 0.227,
+          "supports": "supports"
+        }
+      ],
+      "computed_value": null,
+      "computed_unit": null,
+      "notes": "No bidder undertaking or declaration regarding land border country compliance found in provided excerpts; only project completion certificates are present."
+    }
+  ],
+  "unmapped_requirements": [
+    "R1",
+    "R5",
+    "R6",
+    "R10",
+    "R1-2",
+    "R2-2",
+    "R5-2",
+    "R6-2",
+    "R9-2",
+    "R10-2",
+    "R1-3",
+    "R2-3",
+    "R10-3",
+    "R6-4",
+    "R7-4",
+    "R5-5",
+    "R6-5",
+    "R2-6",
+    "R3-6",
+    "R3-7",
+    "R4-7",
+    "R5-6",
+    "R3-8"
+  ],
+  "warnings": []
+}
