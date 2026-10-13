@@ -1,0 +1,6 @@
+[lint]
+# B008: FastAPI's File()/Form() in defaults is the framework's idiom.
+# BLE001: broad excepts are deliberate — provider/parse failures must
+# retry or degrade, never crash the pipeline (all are logged).
+# RUF100: keep existing `# noqa: BLE001` comments valid.
+ignore = ["B008", "BLE001", "RUF100"]

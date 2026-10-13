@@ -1,6 +1,23 @@
 .env
 .venv/
+node_modules/
+.next/
 __pycache__/
 *.pyc
 .pytest_cache/
 .DS_Store
+.ruff_cache/
+# Local-only: docs, fixtures, scratchpads, tests stay off the remote.
+docs/
+idea doc/
+scripts/
+tests/
+# data/ is runtime state (sqlite, chroma index, uploads, local checkpoints).
+data/
+# Keep per-file sample fixtures committable if added later:
+# !data/sample-company/
+.claude/
+# Entire project config IS committed (settings, agent guides, runners);
+# personal/runtime files are excluded by .entire/.gitignore.
+# (.entire/ intentionally not ignored)
+.opencode/

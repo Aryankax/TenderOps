@@ -1,0 +1,1752 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "TenderOps API",
+    "description": "Two-agent tender pipeline: the Tender Analyst Agent extracts structured requirements from GeM tender PDFs, and the Evidence Agent maps each requirement against indexed company documents.",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/api/tender-analysis": {
+      "post": {
+        "tags": [
+          "Tender Analysis"
+        ],
+        "summary": "Analyze tender PDF",
+        "description": "Upload a GeM tender PDF (max 10 MB). Returns structured metadata, per-chunk requirements with normalized thresholds, cross-chunk issues (missing attachments, contradictions), and review flags.",
+        "operationId": "analyze_tender_api_tender_analysis_post",
+        "parameters": [
+          {
+            "name": "fetch_links",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Follow embedded links/attachments (annexures) into the analysis.",
+              "default": true,
+              "title": "Fetch Links"
+            },
+            "description": "Follow embedded links/attachments (annexures) into the analysis."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_analyze_tender_api_tender_analysis_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenderAnalysisResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Not a PDF, file too large, or PDF unparseable."
+          },
+          "500": {
+            "description": "Analysis pipeline failure."
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pipeline/run": {
+      "post": {
+        "tags": [
+          "Pipeline"
+        ],
+        "summary": "Run full pipeline (P1+P2+P3+P4)",
+        "description": "Upload a tender PDF: supervised run of tender analysis (P1, incl. linked annexures), evidence mapping (P2), compliance + blockers (P3), then bid drafting with independent verification (P4, bounded fix loop). Pauses with a checkpoint when blockers need human fixes; resume via POST /api/pipeline/resume or run async via jobs.",
+        "operationId": "run_pipeline_api_pipeline_run_post",
+        "parameters": [
+          {
+            "name": "fetch_links",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Follow embedded links/attachments (annexures) into the analysis.",
+              "default": true,
+              "title": "Fetch Links"
+            },
+            "description": "Follow embedded links/attachments (annexures) into the analysis."
+          },
+          {
+            "name": "company_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Company profile: evidence is searched strictly inside this company's index.",
+              "default": "sample",
+              "title": "Company Id"
+            },
+            "description": "Company profile: evidence is searched strictly inside this company's index."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_run_pipeline_api_pipeline_run_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PipelineResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Not a PDF, file too large, or PDF unparseable."
+          },
+          "500": {
+            "description": "Analysis, evidence-mapping or compliance failure."
+          },
+          "404": {
+            "description": "Unknown tender_id (resume only)."
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pipeline/resume": {
+      "post": {
+        "tags": [
+          "Pipeline"
+        ],
+        "summary": "Resume a paused pipeline",
+        "description": "Reload a checkpoint by tender_id, optionally with additional company PDFs (appended to the evidence index), then re-run only affected checks (missing/review/partial requirements + blocker-linked ones) before a fresh compliance pass.",
+        "operationId": "resume_pipeline_api_pipeline_resume_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_resume_pipeline_api_pipeline_resume_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PipelineResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "No usable PDFs in the fix upload."
+          },
+          "404": {
+            "description": "Unknown tender_id (no checkpoint)."
+          },
+          "500": {
+            "description": "Resume failure."
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pipeline/evidence-index": {
+      "get": {
+        "tags": [
+          "Pipeline"
+        ],
+        "summary": "List indexed company documents",
+        "description": "Inventory of a company's evidence index: which documents are indexed, with chunk and page counts. Use company_id to inspect one company's private index.",
+        "operationId": "list_evidence_index_api_pipeline_evidence_index_get",
+        "parameters": [
+          {
+            "name": "company_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "sample",
+              "title": "Company Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Empty files list when nothing indexed.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Pipeline"
+        ],
+        "summary": "Rebuild company evidence index",
+        "description": "Upload company PDFs (turnover/experience/OEM certificates, \u2026) either as individual `files` or as a single `zip_file` containing many PDFs (the zip is unpacked server-side, non-PDF members skipped). Replaces the 'sample' evidence collection used by P2 mapping.",
+        "operationId": "rebuild_evidence_index_api_pipeline_evidence_index_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "description": "No usable PDFs (wrong type, bad zip, or all skipped)."
+          }
+        },
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "files": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "binary"
+                    },
+                    "description": "Individual company PDFs (repeatable)."
+                  },
+                  "zip_file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Zip archive of company PDFs."
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/jobs": {
+      "post": {
+        "tags": [
+          "Jobs"
+        ],
+        "summary": "Start async pipeline run",
+        "description": "Stores the tender PDF and runs the full supervised pipeline (P1+P2+P3+P4) in a background worker. Poll GET /api/jobs/{job_id} for the outcome \u2014 no long-lived HTTP connection needed.",
+        "operationId": "start_job_api_jobs_post",
+        "parameters": [
+          {
+            "name": "fetch_links",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Fetch Links"
+            }
+          },
+          {
+            "name": "company_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Company profile: evidence is searched strictly inside this company's index.",
+              "default": "sample",
+              "title": "Company Id"
+            },
+            "description": "Company profile: evidence is searched strictly inside this company's index."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_start_job_api_jobs_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "description": "Not a PDF or file too large."
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Jobs"
+        ],
+        "summary": "List recent jobs",
+        "operationId": "list_jobs_api_jobs_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "default": 20,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Newest first.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/jobs/{job_id}": {
+      "get": {
+        "tags": [
+          "Jobs"
+        ],
+        "summary": "Poll job status / result",
+        "operationId": "get_job_api_jobs__job_id__get",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Includes result once DONE.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown job_id."
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/events/stream": {
+      "get": {
+        "tags": [
+          "Events"
+        ],
+        "summary": "Live agent event stream (SSE)",
+        "description": "Server-sent events of agent activity: node starts/successes, retries, provider fallbacks, blockers. Filter by tender_id (matches tender_id or run_id). Replay recent history first, then stream live. Clients reconnect with ?after=<last seq>.",
+        "operationId": "stream_events_api_events_stream_get",
+        "parameters": [
+          {
+            "name": "tender_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tender Id"
+            }
+          },
+          {
+            "name": "after",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0,
+              "title": "After"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "text/event-stream",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "summary": "Health check",
+        "operationId": "health_check_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "BidDraft": {
+        "properties": {
+          "draft_id": {
+            "type": "string",
+            "title": "Draft Id"
+          },
+          "requirement_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requirement Id"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind",
+            "default": "requirement_response"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "body": {
+            "type": "string",
+            "title": "Body"
+          },
+          "evidence_refs": {
+            "items": {
+              "$ref": "#/components/schemas/EvidenceRef"
+            },
+            "type": "array",
+            "title": "Evidence Refs"
+          },
+          "claimed_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Claimed Value"
+          },
+          "claimed_unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Claimed Unit"
+          },
+          "needs_human_signoff": {
+            "type": "boolean",
+            "title": "Needs Human Signoff",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "draft_id",
+          "title",
+          "body"
+        ],
+        "title": "BidDraft",
+        "description": "One draft artifact. Grounded by construction: every draft cites the\nevidence it rests on, and numeric claims travel as structured fields\nso the verifier can re-check them without parsing prose."
+      },
+      "BidPackage": {
+        "properties": {
+          "tender_id": {
+            "type": "string",
+            "title": "Tender Id"
+          },
+          "drafts": {
+            "items": {
+              "$ref": "#/components/schemas/BidDraft"
+            },
+            "type": "array",
+            "title": "Drafts"
+          },
+          "checklist": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Checklist"
+          },
+          "risk_report": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Risk Report"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tender_id"
+        ],
+        "title": "BidPackage"
+      },
+      "Blocker": {
+        "properties": {
+          "blocker_id": {
+            "type": "string",
+            "title": "Blocker Id"
+          },
+          "blocker_type": {
+            "$ref": "#/components/schemas/BlockerType"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "severity": {
+            "type": "string",
+            "title": "Severity",
+            "default": "high"
+          },
+          "affected_requirement_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Affected Requirement Ids"
+          },
+          "resolution_hint": {
+            "type": "string",
+            "title": "Resolution Hint",
+            "default": ""
+          },
+          "requires_human_review": {
+            "type": "boolean",
+            "title": "Requires Human Review",
+            "default": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "blocker_id",
+          "blocker_type",
+          "description"
+        ],
+        "title": "Blocker"
+      },
+      "BlockerType": {
+        "type": "string",
+        "enum": [
+          "MISSING_DOCUMENT",
+          "FAILED_CHECK",
+          "EXPIRED_DOCUMENT",
+          "CONTRADICTION",
+          "UNRESOLVED_REVIEW",
+          "INCOMPLETE_EVIDENCE"
+        ],
+        "title": "BlockerType"
+      },
+      "Body_analyze_tender_api_tender_analysis_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_analyze_tender_api_tender_analysis_post"
+      },
+      "Body_resume_pipeline_api_pipeline_resume_post": {
+        "properties": {
+          "tender_id": {
+            "type": "string",
+            "title": "Tender Id"
+          },
+          "files": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "contentMediaType": "application/octet-stream"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Files"
+          },
+          "zip_file": {
+            "anyOf": [
+              {
+                "type": "string",
+                "contentMediaType": "application/octet-stream"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Zip File"
+          },
+          "company_id": {
+            "type": "string",
+            "title": "Company Id",
+            "default": "sample"
+          },
+          "waive": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Waive",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "tender_id"
+        ],
+        "title": "Body_resume_pipeline_api_pipeline_resume_post"
+      },
+      "Body_run_pipeline_api_pipeline_run_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_run_pipeline_api_pipeline_run_post"
+      },
+      "Body_start_job_api_jobs_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_start_job_api_jobs_post"
+      },
+      "ComplianceMatrix": {
+        "properties": {
+          "tender_id": {
+            "type": "string",
+            "title": "Tender Id"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/RequirementCompliance"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "blockers": {
+            "items": {
+              "$ref": "#/components/schemas/Blocker"
+            },
+            "type": "array",
+            "title": "Blockers"
+          },
+          "waived_blockers": {
+            "items": {
+              "$ref": "#/components/schemas/Blocker"
+            },
+            "type": "array",
+            "title": "Waived Blockers"
+          },
+          "summary": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Summary"
+          },
+          "decision": {
+            "type": "string",
+            "title": "Decision",
+            "default": "PROCEED"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tender_id"
+        ],
+        "title": "ComplianceMatrix"
+      },
+      "ComplianceStatus": {
+        "type": "string",
+        "enum": [
+          "COMPLIANT",
+          "NON_COMPLIANT",
+          "PENDING",
+          "NEEDS_REVIEW"
+        ],
+        "title": "ComplianceStatus",
+        "description": "The four terminal states from the P3 plan (plain Python, no LLM)."
+      },
+      "EvidenceHit": {
+        "properties": {
+          "document_name": {
+            "type": "string",
+            "title": "Document Name"
+          },
+          "page_number": {
+            "type": "integer",
+            "title": "Page Number"
+          },
+          "excerpt": {
+            "type": "string",
+            "title": "Excerpt"
+          },
+          "score": {
+            "type": "number",
+            "title": "Score"
+          },
+          "supports": {
+            "type": "string",
+            "title": "Supports",
+            "default": "supports"
+          }
+        },
+        "type": "object",
+        "required": [
+          "document_name",
+          "page_number",
+          "excerpt",
+          "score"
+        ],
+        "title": "EvidenceHit"
+      },
+      "EvidenceMap": {
+        "properties": {
+          "tender_id": {
+            "type": "string",
+            "title": "Tender Id"
+          },
+          "company_profile_id": {
+            "type": "string",
+            "title": "Company Profile Id",
+            "default": "sample"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/RequirementEvidence"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "unmapped_requirements": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Unmapped Requirements"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Warnings"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tender_id"
+        ],
+        "title": "EvidenceMap"
+      },
+      "EvidenceRef": {
+        "properties": {
+          "document_name": {
+            "type": "string",
+            "title": "Document Name"
+          },
+          "page_number": {
+            "type": "integer",
+            "title": "Page Number"
+          }
+        },
+        "type": "object",
+        "required": [
+          "document_name",
+          "page_number"
+        ],
+        "title": "EvidenceRef"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "PipelineResult": {
+        "properties": {
+          "tender_id": {
+            "type": "string",
+            "title": "Tender Id"
+          },
+          "analysis": {
+            "$ref": "#/components/schemas/TenderAnalysisResult"
+          },
+          "evidence": {
+            "$ref": "#/components/schemas/EvidenceMap"
+          },
+          "compliance": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ComplianceMatrix"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "package": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BidPackage"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "verification": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VerificationReport"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "pipeline_status": {
+            "type": "string",
+            "title": "Pipeline Status",
+            "default": "COMPLETED"
+          },
+          "checkpoint_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checkpoint Path"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tender_id",
+          "analysis",
+          "evidence"
+        ],
+        "title": "PipelineResult"
+      },
+      "RequirementCategory": {
+        "type": "string",
+        "enum": [
+          "FINANCIAL_ELIGIBILITY",
+          "TECHNICAL_ELIGIBILITY",
+          "EXPERIENCE",
+          "LEGAL_AND_STATUTORY",
+          "MANDATORY_DOCUMENTS",
+          "TECHNICAL_SPECIFICATIONS",
+          "COMMERCIAL",
+          "DEADLINES",
+          "SUBMISSION_INSTRUCTIONS",
+          "CONTRACTUAL",
+          "OTHER"
+        ],
+        "title": "RequirementCategory"
+      },
+      "RequirementCompliance": {
+        "properties": {
+          "requirement_id": {
+            "type": "string",
+            "title": "Requirement Id"
+          },
+          "requirement_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requirement Title"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ComplianceStatus"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Reasons"
+          },
+          "evidence_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence Status"
+          },
+          "blocker_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Blocker Ids"
+          }
+        },
+        "type": "object",
+        "required": [
+          "requirement_id",
+          "status"
+        ],
+        "title": "RequirementCompliance"
+      },
+      "RequirementEvidence": {
+        "properties": {
+          "requirement_id": {
+            "type": "string",
+            "title": "Requirement Id"
+          },
+          "requirement_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requirement Title"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "confidence": {
+            "type": "number",
+            "title": "Confidence",
+            "default": 0.0
+          },
+          "hits": {
+            "items": {
+              "$ref": "#/components/schemas/EvidenceHit"
+            },
+            "type": "array",
+            "title": "Hits"
+          },
+          "computed_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Computed Value"
+          },
+          "computed_unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Computed Unit"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "requirement_id",
+          "status"
+        ],
+        "title": "RequirementEvidence"
+      },
+      "RequirementThreshold": {
+        "properties": {
+          "operator": {
+            "type": "string",
+            "title": "Operator"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          },
+          "unit": {
+            "type": "string",
+            "title": "Unit"
+          },
+          "original_value": {
+            "type": "string",
+            "title": "Original Value"
+          }
+        },
+        "type": "object",
+        "required": [
+          "operator",
+          "unit",
+          "original_value"
+        ],
+        "title": "RequirementThreshold"
+      },
+      "SemanticType": {
+        "type": "string",
+        "enum": [
+          "BIDDER_OBLIGATION",
+          "ELIGIBILITY_CONDITION",
+          "EXEMPTION",
+          "BUYER_DISCRETION",
+          "PROHIBITION",
+          "RESTRICTION",
+          "CONTRACTUAL_TERM",
+          "INFORMATIONAL"
+        ],
+        "title": "SemanticType",
+        "description": "What kind of clause a requirement is \u2014 distinct from its topic category.\n\nUsed to stop treating every extracted clause as an unconditional bidder\nobligation: prohibitions keep their negation, buyer-discretion clauses are\nnot bidder duties, and informational references carry no obligation."
+      },
+      "SourceReference": {
+        "properties": {
+          "document_name": {
+            "type": "string",
+            "title": "Document Name"
+          },
+          "page_number": {
+            "type": "integer",
+            "title": "Page Number"
+          },
+          "section_heading": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Section Heading"
+          },
+          "source_excerpt": {
+            "type": "string",
+            "title": "Source Excerpt"
+          }
+        },
+        "type": "object",
+        "required": [
+          "document_name",
+          "page_number",
+          "source_excerpt"
+        ],
+        "title": "SourceReference"
+      },
+      "TenderAnalysisIssue": {
+        "properties": {
+          "issue_id": {
+            "type": "string",
+            "title": "Issue Id"
+          },
+          "issue_type": {
+            "type": "string",
+            "title": "Issue Type"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "severity": {
+            "type": "string",
+            "title": "Severity"
+          },
+          "affected_requirement_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Affected Requirement Ids"
+          },
+          "source_references": {
+            "items": {
+              "$ref": "#/components/schemas/SourceReference"
+            },
+            "type": "array",
+            "title": "Source References"
+          },
+          "requires_human_review": {
+            "type": "boolean",
+            "title": "Requires Human Review",
+            "default": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "issue_id",
+          "issue_type",
+          "description",
+          "severity"
+        ],
+        "title": "TenderAnalysisIssue"
+      },
+      "TenderAnalysisResult": {
+        "properties": {
+          "tender_id": {
+            "type": "string",
+            "title": "Tender Id"
+          },
+          "analysis_status": {
+            "type": "string",
+            "title": "Analysis Status"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/TenderMetadata"
+          },
+          "requirements": {
+            "items": {
+              "$ref": "#/components/schemas/TenderRequirement"
+            },
+            "type": "array",
+            "title": "Requirements"
+          },
+          "issues": {
+            "items": {
+              "$ref": "#/components/schemas/TenderAnalysisIssue"
+            },
+            "type": "array",
+            "title": "Issues"
+          },
+          "total_pages": {
+            "type": "integer",
+            "title": "Total Pages"
+          },
+          "processed_pages": {
+            "type": "integer",
+            "title": "Processed Pages"
+          },
+          "unreadable_pages": {
+            "type": "integer",
+            "title": "Unreadable Pages"
+          },
+          "requirements_needing_review": {
+            "type": "integer",
+            "title": "Requirements Needing Review"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Warnings"
+          },
+          "failed_chunks": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Failed Chunks"
+          },
+          "linked_documents": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Linked Documents"
+          },
+          "completeness": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Completeness"
+          },
+          "analysis_version": {
+            "type": "string",
+            "title": "Analysis Version",
+            "default": "1.0"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tender_id",
+          "analysis_status",
+          "metadata",
+          "total_pages",
+          "processed_pages",
+          "unreadable_pages",
+          "requirements_needing_review"
+        ],
+        "title": "TenderAnalysisResult"
+      },
+      "TenderMetadata": {
+        "properties": {
+          "tender_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tender Title"
+          },
+          "tender_reference": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tender Reference"
+          },
+          "issuing_authority": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Issuing Authority"
+          },
+          "submission_deadline": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Submission Deadline"
+          },
+          "bid_opening_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bid Opening Date"
+          },
+          "pre_bid_meeting_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pre Bid Meeting Date"
+          },
+          "clarification_deadline": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clarification Deadline"
+          },
+          "emd_amount": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Emd Amount"
+          },
+          "tender_fee": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tender Fee"
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
+          },
+          "contract_duration": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contract Duration"
+          },
+          "delivery_deadline": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delivery Deadline"
+          },
+          "other_metadata": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Other Metadata"
+          }
+        },
+        "type": "object",
+        "title": "TenderMetadata"
+      },
+      "TenderRequirement": {
+        "properties": {
+          "requirement_id": {
+            "type": "string",
+            "title": "Requirement Id"
+          },
+          "category": {
+            "$ref": "#/components/schemas/RequirementCategory"
+          },
+          "semantic_type": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SemanticType"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "original_text": {
+            "type": "string",
+            "title": "Original Text"
+          },
+          "normalized_description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Normalized Description"
+          },
+          "mandatory": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mandatory"
+          },
+          "applicability_condition": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Applicability Condition"
+          },
+          "threshold": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RequirementThreshold"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "required_evidence": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Required Evidence"
+          },
+          "source_references": {
+            "items": {
+              "$ref": "#/components/schemas/SourceReference"
+            },
+            "type": "array",
+            "title": "Source References"
+          },
+          "depends_on": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Depends On"
+          },
+          "confidence": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confidence"
+          },
+          "needs_review": {
+            "type": "boolean",
+            "title": "Needs Review",
+            "default": false
+          },
+          "review_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review Reason"
+          }
+        },
+        "type": "object",
+        "required": [
+          "requirement_id",
+          "category",
+          "title",
+          "original_text"
+        ],
+        "title": "TenderRequirement"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      },
+      "VerificationFinding": {
+        "properties": {
+          "check": {
+            "type": "string",
+            "title": "Check"
+          },
+          "requirement_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requirement Id"
+          },
+          "draft_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Draft Id"
+          },
+          "passed": {
+            "type": "boolean",
+            "title": "Passed",
+            "default": true
+          },
+          "severity": {
+            "type": "string",
+            "title": "Severity",
+            "default": "warning"
+          },
+          "detail": {
+            "type": "string",
+            "title": "Detail",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "check"
+        ],
+        "title": "VerificationFinding"
+      },
+      "VerificationReport": {
+        "properties": {
+          "tender_id": {
+            "type": "string",
+            "title": "Tender Id"
+          },
+          "passed": {
+            "type": "boolean",
+            "title": "Passed",
+            "default": false
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/VerificationFinding"
+            },
+            "type": "array",
+            "title": "Findings"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tender_id"
+        ],
+        "title": "VerificationReport"
+      }
+    }
+  }
+}

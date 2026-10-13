@@ -1,0 +1,8 @@
+settings.local.json
+brain/cache/
+graph-cache/
+*.log
+tmp/
+metadata/
+logs/
+redactors/local/

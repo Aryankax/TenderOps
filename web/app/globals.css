@@ -1,0 +1,51 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  @apply bg-zinc-950 text-zinc-100 antialiased;
+  background-image:
+    radial-gradient(ellipse 60% 40% at 50% -10%, rgba(16, 185, 129, 0.12), transparent),
+    radial-gradient(ellipse 40% 30% at 90% 10%, rgba(34, 211, 238, 0.07), transparent);
+  background-attachment: fixed;
+}
+
+.card {
+  @apply rounded-2xl border border-white/10 bg-zinc-900/70 backdrop-blur p-5 shadow-xl shadow-black/30;
+}
+
+.btn-primary {
+  @apply rounded-xl bg-emerald-500 px-5 py-2.5 font-semibold text-zinc-950
+    hover:bg-emerald-400 disabled:opacity-40 disabled:cursor-not-allowed
+    transition-colors;
+}
+
+.btn-ghost {
+  @apply rounded-xl border border-white/15 px-4 py-2 text-sm text-zinc-200
+    hover:border-white/30 hover:bg-white/5 transition-colors;
+}
+
+.input {
+  @apply rounded-xl border border-white/10 bg-zinc-900 px-3 py-2 text-sm
+    placeholder:text-zinc-500 focus:border-emerald-500/60 focus:outline-none w-full;
+}
+
+.badge {
+  @apply inline-block rounded-full border border-white/15 bg-white/5 px-2.5 py-0.5
+    font-mono text-[11px] text-zinc-300;
+}
+
+@keyframes pulse-ring {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5); }
+  50% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+}
+.stage-active {
+  animation: pulse-ring 1.6s ease-out infinite;
+}
+
+.scroll-slim::-webkit-scrollbar { width: 6px; }
+.scroll-slim::-webkit-scrollbar-thumb { @apply bg-white/15 rounded-full; }
